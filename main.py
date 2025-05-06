@@ -9,25 +9,10 @@ from pyb import Pin, Timer
 from ecofunctions import *
 # perform quick start from sleep check
 start_check()
+# set settings according to user defined shortcut mode
+use_shortcut_mode(MODE)
+from config.settings import *# reimport settings (ugly: TODO: name settings module or use object)
 
-# ━━━━━━━━━━ 𝗦𝗛𝗢𝗥𝗧𝗖𝗨𝗧 𝗠𝗢𝗗𝗘𝗦 ━━━━━━━━━━
-# override settings in ine of the shortcut modes
-if (MODE == 0 or MODE == 2):
-    fd_enable = False
-    classify_mode = "none"
-    operation_time = "24h"
-    exposure_control = "auto"
-    delay_loop_s = 0
-    exposure_bracketing = False
-    RTC_select = 'onboard'
-    if (MODE == 0):
-        save_roi = "none"
-        print("*** Live view enabled! *** ")
-    if (MODE == 2):
-        save_roi = "all"
-        print("*** Live capture enabled! ***")
-# or not in normal mode
-elif (MODE == 1): print("*** Deployment started! ***")
 
 # ━━━━━━━━━━ 𝗩𝗢𝗟𝗧𝗔𝗚𝗘 𝗗𝗜𝗩𝗜𝗗𝗘𝗥 ━━━━━━━━━━
 # resistors values on voltage divider circuits

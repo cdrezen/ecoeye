@@ -1,5 +1,7 @@
 # ╋╋╋╋╋╋╋╋╋╋ 𝙐𝙎𝙀𝙍-𝘿𝙀𝙁𝙄𝙉𝙀𝘿 𝙋𝘼𝙍𝘼𝙈𝙀𝙏𝙀𝙍𝙎 ╋╋╋╋╋╋╋╋╋╋
 
+import sensor
+
 # ━━━━━━━━━━ 𝗦𝗛𝗢𝗥𝗧𝗖𝗨𝗧 𝗠𝗢𝗗𝗘𝗦 ━━━━━━━━━━
 #operation mode:
 #0: live view. Disables saving pictures, frame differencing, classifying, sleeping, bracketing, delay between pictures. Uses auto-exposure.
@@ -219,3 +221,28 @@ send_voltage = False
 threshold_image = 0.5
 
 # ╋╋╋╋╋╋╋╋╋╋ 𝙀𝙉𝘿 𝙊𝙁 𝙐𝙎𝙀𝙍-𝘿𝙀𝙁𝙄𝙉𝙀𝘿 𝙋𝘼𝙍𝘼𝙈𝙀𝙏𝙀𝙍𝙎 ╋╋╋╋╋╋╋╋╋╋
+
+# ━━━━━━━━━━ 𝗦𝗛𝗢𝗥𝗧𝗖𝗨𝗧 𝗠𝗢𝗗𝗘𝗦 ━━━━━━━━━━
+def use_shortcut_mode(mode: int = MODE):
+    """
+    Override settings in ine of the shortcut modes/
+    Changes settings according to shortcut mode
+    :param mode: shortcut mode
+    """
+    if (mode == 0 or mode == 2):
+        global fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, exposure_bracketing, RTC_select, save_roi
+        fd_enable = False
+        classify_mode = "none"
+        operation_time = "24h"
+        exposure_control = "auto"
+        delay_loop_s = 0
+        exposure_bracketing = False
+        RTC_select = 'onboard'
+        if (mode == 0):
+            save_roi = "none"
+            print("*** Live view enabled! *** ")
+        if (mode == 2):
+            save_roi = "all"
+            print("*** Live capture enabled! ***")
+    # or not in normal mode
+    elif (mode == 1): print("*** Deployment started! ***")
