@@ -24,3 +24,11 @@ from config.settings import *
 print(fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, exposure_bracketing, RTC_select, save_roi)
 assert save_roi == "all"
 ###
+
+### test voltage divider
+if(running_on_camera):
+    from hardware.voltage_divider import vdiv_build
+    vdiv_build()
+###
+
+### test led

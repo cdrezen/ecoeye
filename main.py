@@ -7,41 +7,17 @@ import sensor, image, time, os, tf, pyb, machine, sys, uos, gc, math
 from pyb import Pin, Timer
 # import external functions
 from ecofunctions import *
+from hardware.voltage_divider import vdiv_build
+from hardware.led import *
+
 # perform quick start from sleep check
 start_check()
 # set settings according to user defined shortcut mode
 use_shortcut_mode(MODE)
 from config.settings import *# reimport settings (ugly: TODO: name settings module or use object)
 
-
-# ━━━━━━━━━━ 𝗩𝗢𝗟𝗧𝗔𝗚𝗘 𝗗𝗜𝗩𝗜𝗗𝗘𝗥 ━━━━━━━━━━
-# resistors values on voltage divider circuits
-R_1_PMS_LED = 30
-R_2_PMS_LED = 8.82352941176
-R_1_PMS_noLED = 30
-R_2_PMS_noLED = 100
-R_1_noPMS_LED = 2.88
-R_2_noPMS_LED = 9.67741935484
-R_1_noPMS_noLED = 200
-R_2_noPMS_noLED = 680
-# set the resistor values in ADC voltage divider
-if(PMS):
-    if (LED_module):
-        R_1 = R_1_PMS_LED
-        R_2 = R_2_PMS_LED
-    else:
-        R_1 = R_1_PMS_noLED
-        R_2 = R_2_PMS_noLED
-else:
-    if (LED_module):
-        R_1 = R_1_noPMS_LED
-        R_2 = R_2_noPMS_LED
-    else:
-        R_1 = R_1_noPMS_noLED
-        R_2 = R_2_noPMS_noLED
-
-# create voltage divider class
-vdiv_bat = vdiv(voltage_divider,voltage_readings,voltage_readings_delay,R_1,R_2)
+# create voltage divider class instance
+vdiv_bat = vdiv_build()
 
 # ━━━━━━━━━━ 𝗧𝗜𝗠𝗘 𝗦𝗘𝗧/𝗨𝗣𝗗𝗔𝗧𝗘 ━━━━━━━━━━
 # create suntime class
