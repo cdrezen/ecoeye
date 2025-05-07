@@ -55,7 +55,7 @@ delay_threshold_sleep_s = 10
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
 #0: minimum
 #100: maximum
-jpeg_quality = 95
+jpeg_quality = 93
 
 # ━━━━━━━━━━ 𝗘𝗫𝗣𝗢𝗦𝗨𝗥𝗘 ━━━━━━━━━━
 #exposure control mode. Options:

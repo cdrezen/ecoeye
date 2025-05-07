@@ -1,6 +1,9 @@
+import os, sys
+
 running_on_camera = False
 
-import os, sys
+print(os.environ['HOME'])
+
 project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_dir)
 if(not running_on_camera):
