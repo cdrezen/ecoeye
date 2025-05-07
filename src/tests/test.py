@@ -1,16 +1,3 @@
-import os, sys
-
-running_on_camera = False
-
-print(os.environ['HOME'])
-
-project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(project_dir)
-if(not running_on_camera):
-    # allow imports such as "sensor" in linux
-    headers_path = os.path.join(os.environ['HOME'], ".config/OpenMV/openmvide/micropython-headers/")
-    sys.path.append(headers_path)
-
 ### test settings moved to config/settings.py and use_shortcut_mode()
 from config.settings import *
 MODE = 0
@@ -29,9 +16,13 @@ assert save_roi == "all"
 ###
 
 ### test voltage divider
-if(running_on_camera):
-    from hardware.voltage_divider import vdiv_build
-    vdiv_build()
+from hardware.voltage_divider import vdiv_build
+vbat = vdiv_build()
+print(vbat.read_voltage())
+if voltage_divider == False:
+    assert vbat.read_voltage() == "NA" 
+else:
+   assert vbat.read_voltage() > 0
 ###
 
 ### test led
