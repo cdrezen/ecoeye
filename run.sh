@@ -1,4 +1,4 @@
-MNTPT=/media/user/7A26-8C37
+MNTPT=/media/user/79BB-BFA7
 
 if ! mount | grep $MNTPT > /dev/null; then
     echo $MNTPT not mounted

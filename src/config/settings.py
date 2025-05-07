@@ -63,7 +63,7 @@ jpeg_quality = 93
 #bias: adjusting exposure and gain automatically at regular intervals (time period can be defined below) but with a user-defined bias for exposure time and gain
 #exposure: fixing exposure time, while adjusting gain at regular intervals (time period can be defined below)
 #manual: fixing exposure time and gain
-exposure_control = "exposure"
+exposure_control = "auto"
 #whether to use exposure bracketing
 exposure_bracketing = False
 
@@ -112,7 +112,7 @@ LED_module_cooldown = 0
 # ━━━━━━━━━━ 𝗙𝗥𝗔𝗠𝗘 𝗗𝗜𝗙𝗙𝗘𝗥𝗘𝗡𝗖𝗜𝗡𝗚 ━━━━━━━━━━
 #whether to use frame differencing. This subtracts every current image from a reference image, resulting in dark images when there is no change.
 #a change will introduce a "blob" in the otherwise dark image, which can be detected, logged, and characterised
-fd_enable = True
+fd_enable = False
 
 # ⚊⚊⚊⚊⚊ FD enabled only parameters ⚊⚊⚊⚊⚊
 #action for blobs. options:
