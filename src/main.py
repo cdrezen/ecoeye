@@ -9,6 +9,7 @@ from pyb import Pin, Timer
 from ecofunctions import *
 from hardware.voltage_divider import vdiv_build
 from hardware.led import *
+from timeutil import suntime, rtc
 
 # perform quick start from sleep check
 start_check()
@@ -19,33 +20,15 @@ from config.settings import *# reimport settings (ugly: TODO: name settings modu
 # create voltage divider class instance
 vdiv_bat = vdiv_build()
 
-# ━━━━━━━━━━ 𝗧𝗜𝗠𝗘 𝗦𝗘𝗧/𝗨𝗣𝗗𝗔𝗧𝗘 ━━━━━━━━━━
+### TIME SET/UPDATE ###
 # create suntime class
 solartime = suntime(operation_time,sunrise_hour,sunrise_minute,sunset_hour,sunset_minute)
 # initialise RTC object
-rtc = pyb.RTC()
-# set rtc from user definedc date and time only on power on
-if (machine.reset_cause() != machine.DEEPSLEEP_RESET and RTC_select == 'onboard'):
-    rtc.datetime(current_date_time)
-if(RTC_select == 'ds3231'):
-    # import necessary librairies
-    from ds3231 import DS3231
-    # initialize i2c pins on P7 (SCL) and P8 (SDA) and DS3231 as ext_rtc
-    i2c = machine.SoftI2C(sda=pyb.Pin('P8'), scl=pyb.Pin('P7'))
-    ext_rtc = DS3231(i2c)
-    ext_rtc.get_time(True)
-if(RTC_select == 'pcf8563'):
-    # import necessary librairies
-    from pcf8563 import PCF8563
-    # initialize i2c pins on P4 (SCL) and P5 (SDA) and PCF8563 as ext_rtc
-    i2c = machine.SoftI2C(sda=pyb.Pin('P5'), scl=pyb.Pin('P4'))
-    ext_rtc = PCF8563(i2c)
-    ext_rtc.get_time(True)
-
+rtc = rtc()
 # print date and time from set or updated RTC
 print("Current date (Y,M,D):",rtc.datetime()[0:3],"and time (H,M,S):",rtc.datetime()[4:7])
 
-# ━━━━━━━━━━ 𝗙𝗜𝗟𝗘𝗦 𝗔𝗡𝗗 𝗙𝗢𝗟𝗗𝗘𝗥𝗦 ━━━━━━━━━━
+### FILES & FOLDERS ###
 #import mobilenet model and labels before new directory is created
 if (classify_mode != "none"):
     net = net_path

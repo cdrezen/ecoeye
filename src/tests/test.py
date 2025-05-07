@@ -26,3 +26,18 @@ else:
 ###
 
 ### test led
+
+### test timeutil
+from timeutil import suntime, rtc
+import time
+
+solartime = suntime(operation_time,sunrise_hour,sunrise_minute,sunset_hour,sunset_minute)
+rtc = rtc()
+# print date and time from set or updated RTC
+start = rtc.datetime()[4:7]
+print("start date (H,M,S):", start)
+time.sleep(1)
+end = rtc.datetime()[4:7]
+print("end date (H,M,S):", end)
+assert start != end
+###
