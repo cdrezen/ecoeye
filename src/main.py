@@ -14,7 +14,7 @@ from timeutil import suntime, rtc
 # perform quick start from sleep check
 start_check()
 # set settings according to user defined shortcut mode
-use_shortcut_mode(MODE)
+apply_mode(MODE)
 from config.settings import *# reimport settings (ugly: TODO: name settings module or use object)
 
 # create voltage divider class instance

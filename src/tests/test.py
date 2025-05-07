@@ -1,7 +1,7 @@
 ### test settings moved to config/settings.py and use_shortcut_mode()
 from config.settings import *
 MODE = 0
-use_shortcut_mode(MODE)
+apply_mode(MODE)
 from config.settings import *
 print(fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, exposure_bracketing, RTC_select, save_roi)
 
@@ -9,7 +9,7 @@ assert (fd_enable == False and classify_mode == "none" and operation_time == "24
         and delay_loop_s == 0 and exposure_bracketing == False and RTC_select == 'onboard' and save_roi == "none")
 
 MODE = 2
-use_shortcut_mode(MODE)
+apply_mode(MODE)
 from config.settings import *
 print(fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, exposure_bracketing, RTC_select, save_roi)
 assert save_roi == "all"

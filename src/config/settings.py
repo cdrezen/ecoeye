@@ -223,7 +223,7 @@ threshold_image = 0.5
 # ╋╋╋╋╋╋╋╋╋╋ 𝙀𝙉𝘿 𝙊𝙁 𝙐𝙎𝙀𝙍-𝘿𝙀𝙁𝙄𝙉𝙀𝘿 𝙋𝘼𝙍𝘼𝙈𝙀𝙏𝙀𝙍𝙎 ╋╋╋╋╋╋╋╋╋╋
 
 # ━━━━━━━━━━ 𝗦𝗛𝗢𝗥𝗧𝗖𝗨𝗧 𝗠𝗢𝗗𝗘𝗦 ━━━━━━━━━━
-def use_shortcut_mode(mode: int = MODE):
+def apply_mode(mode: int = MODE):
     """
     Override settings in ine of the shortcut modes/
     Changes settings according to shortcut mode
