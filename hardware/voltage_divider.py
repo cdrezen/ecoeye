@@ -4,7 +4,6 @@ from pyb import Pin, Timer, ExtInt
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF
 
 from config.settings import PMS, LED_module, voltage_divider, voltage_readings, voltage_readings_delay
-from ecofunctions import vdiv
 # resistors values on voltage divider circuits
 R_1_PMS_LED = 30
 R_2_PMS_LED = 8.82352941176

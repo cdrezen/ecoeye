@@ -1,6 +1,6 @@
 # Functions for EcoNect
 # import libraries
-import machine, pyb, time, network, sensor, os, urequests, math
+import machine, pyb, time, network, sensor, os, requests, math
 from pyb import Pin, Timer, ExtInt
 # import library for interrupt and allocate buffer memory
 import micropython
@@ -529,7 +529,7 @@ def data_transfer(url, data1, data2=None, data3=None, data4=None):
 
     print("Sending data to server")
     try:
-        request_data = urequests.post(url, json=data, headers=headers)
+        request_data = requests.post(url, json=data, headers=headers)
         LED_BLUE_BLINK(300,2)
         print("Data sucessfully sent")
         data_transferred = True
@@ -558,7 +558,7 @@ def image_transfer(url, img1):
     # send the file
     print("Sending file to server")
     try:
-        request_image = urequests.post(url, files=files, headers=headers)
+        request_image = requests.post(url, files=files, headers=headers)
         LED_BLUE_BLINK(300,2)
         # print some post request parameters
         print("Image sent to Server")
