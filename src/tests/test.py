@@ -36,7 +36,7 @@ rtc = rtc()
 # print date and time from set or updated RTC
 start = rtc.datetime()[4:7]
 print("start date (H,M,S):", start)
-time.sleep(1)
+time.sleep(2)
 end = rtc.datetime()[4:7]
 print("end date (H,M,S):", end)
 assert start != end
