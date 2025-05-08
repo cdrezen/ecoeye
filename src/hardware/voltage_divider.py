@@ -3,7 +3,7 @@ import pyb
 from pyb import Pin, Timer, ExtInt
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF
 
-from config.settings import PMS, LED_module, voltage_divider, voltage_readings, voltage_readings_delay
+from config.settings import PMS, LED_module, voltage_divider, voltage_readings, voltage_readings_delay, vbat_minimum
 # resistors values on voltage divider circuits
 R_1_PMS_LED = 30
 R_2_PMS_LED = 8.82352941176
@@ -60,6 +60,13 @@ class vdiv:
         else:
             adc_voltage="NA"
         return adc_voltage
+
+    def is_battery_low():
+        vbat = vdiv.read_voltage()
+        return (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected())
+
+def is_battery_low(vbat):
+    return (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected())
 
 def vdiv_build():
     # set the resistor values in ADC voltage divider

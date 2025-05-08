@@ -3,6 +3,23 @@
 
 #import libraries
 import image, os, tf, pyb, math
+from config.settings import classify_mode, labels_path, net_path, non_target_labels
+
+def load_model():
+    labels = None
+    non_target_indices = None
+    try:
+        labels = [line.rstrip('\n') for line in open(labels_path)]
+        print("Loaded model and labels")
+        #get target label index
+        target_indices = [i for i in range(len(labels)) if labels[i] not in non_target_labels]
+        non_target_indices = [i for i in range(len(labels)) if labels[i] in non_target_labels]
+        print("Selected target indices:",list(labels[i] for i in target_indices))
+    except Exception as e:
+        print(e)
+        raise Exception('Failed to load "trained.tflite" or "labels.txt", make sure to add these files on the SD card (' + str(e) + ')')
+    return labels, non_target_indices
+
 
 # USER PARAMETERS ######
 #import mobilenet model and labels

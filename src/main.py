@@ -7,9 +7,11 @@ import sensor, image, time, os, tf, pyb, machine, sys, uos, gc, math
 from pyb import Pin, Timer
 # import external functions
 from ecofunctions import *
-from hardware.voltage_divider import vdiv_build
+from hardware.voltage_divider import vdiv_build, is_battery_low
 from hardware.led import *
 from timeutil import suntime, rtc
+from classify import load_model
+from file import read_filevars, write_filevars, write_status
 
 # perform quick start from sleep check
 start_check()
@@ -21,47 +23,34 @@ from config.settings import *# reimport settings (ugly: TODO: name settings modu
 vdiv_bat = vdiv_build()
 
 ### TIME SET/UPDATE ###
-# create suntime class
+# initialise time objects & print date and time from set or updated RTC
 solartime = suntime(operation_time,sunrise_hour,sunrise_minute,sunset_hour,sunset_minute)
-# initialise RTC object
 rtc = rtc()
-# print date and time from set or updated RTC
 print("Current date (Y,M,D):",rtc.datetime()[0:3],"and time (H,M,S):",rtc.datetime()[4:7])
 
+current_folder, picture_count, detection_count = None, None, None
+
+def check_battery_sleep(vbat=None, print_status=""):
+    # check voltage and save status, if battery too low -> sleep until sunrise
+    if(vbat == None):
+        vbat = vdiv_bat.read_voltage()
+    if(print_status != ""):
+        write_status(vbat, print_status, current_folder)
+    if is_battery_low(vbat):
+        write_filevars(current_folder, picture_count, detection_count)
+        write_status(vbat,"Battery low - Sleeping", current_folder)
+        indicator_dsleep(solartime.time_until_sunrise()+30*60*1000,active_LED_interval_ms)
+
 ### FILES & FOLDERS ###
+
 #import mobilenet model and labels before new directory is created
-if (classify_mode != "none"):
-    net = net_path
-    try:
-        labels = [line.rstrip('\n') for line in open(labels_path)]
-        print("Loaded model and labels")
-        #get target label index
-        target_indices = [i for i in range(len(labels)) if labels[i] not in non_target_labels]
-        non_target_indices = [i for i in range(len(labels)) if labels[i] in non_target_labels]
-        print("Selected target indices:",list(labels[i] for i in target_indices))
-    except Exception as e:
-        print(e)
-        raise Exception('Failed to load "trained.tflite" or "labels.txt", make sure to add these files on the SD card (' + str(e) + ')')
+if(classify_mode != "none"):
+    labels, non_target_indices = load_model()
 
 # On wakeup from deep sleep, fetch variables from files
 if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
-    # retrieve current working folder name in VAR
-    with open('/VAR/currentfolder.txt', 'r') as folderfetch:
-        current_folder = folderfetch.read()
-    # retrieve current picture ID in VAR
-    with open('/VAR/picturecount.txt', 'r') as countfetch:
-        picture_count = eval(countfetch.read())
-    # retrieve current detection ID in VAR
-    with open('/VAR/detectioncount.txt', 'r') as countfetch:
-        detection_count = eval(countfetch.read())
-
-    # check voltage and save status, if battery too low -> sleep until sunrise
-    vbat = vdiv_bat.read_voltage()
-    save_status(vbat,"Script start - Waking",current_folder)
-    if (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected()):
-        save_variables(current_folder, picture_count, detection_count)
-        save_status(vbat,"Battery low - Sleeping",current_folder)
-        indicator_dsleep(solartime.time_until_sunrise()+30*60*1000,active_LED_interval_ms)
+    current_folder, picture_count, detection_count = read_filevars()
+    check_battery_sleep(print_status="Script start - Waking")
 
 # create and initialize new folders only on powerup or soft reset
 if (machine.reset_cause() != machine.DEEPSLEEP_RESET and MODE != 0):
@@ -116,12 +105,7 @@ if (machine.reset_cause() != machine.DEEPSLEEP_RESET and MODE != 0):
     detection_count = 0
 
     # check voltage and save status, if battery too low -> sleep until sunrise
-    vbat = vdiv_bat.read_voltage()
-    save_status(vbat,"Script start - Initialising",current_folder)
-    if (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected()):
-        save_variables(current_folder, picture_count, detection_count)
-        save_status(vbat,"Battery low - Sleeping",current_folder)
-        indicator_dsleep(solartime.time_until_sunrise()+30*60*1000,active_LED_interval_ms)
+    check_battery_sleep(print_status="Script start - Initialising")
 
 # ━━━━━━━━━━ 𝗕𝗢𝗔𝗥𝗗 𝗖𝗢𝗡𝗧𝗥𝗢𝗟 ━━━━━━━━━━
 # verify that wifi shield is connected when wifi is enabled
@@ -257,8 +241,8 @@ while(True):
             sleep_time = solartime.time_until_sunrise()
         if (operation_time == "night"):
             sleep_time = solartime.time_until_sunset()
-        save_variables(current_folder, picture_count, detection_count)
-        save_status(vbat,"Outside operation time - Sleeping",current_folder)
+        write_filevars(current_folder, picture_count, detection_count)
+        write_status(vbat,"Outside operation time - Sleeping",current_folder)
         indicator_dsleep(sleep_time, active_LED_interval_ms)
 
     # continue script when operation time
@@ -306,10 +290,10 @@ while(True):
         # check voltage and save status, if battery too low -> sleep until sunrise
         vbat = vdiv_bat.read_voltage()
         if (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected()):
-            save_variables(current_folder, picture_count, detection_count)
-            save_status(vbat,"Battery low - Sleeping",current_folder)
+            write_filevars(current_folder, picture_count, detection_count)
+            write_status(vbat,"Battery low - Sleeping",current_folder)
             indicator_dsleep(solartime.time_until_sunrise()+30*60*1000,active_LED_interval_ms)
-        save_status(vbat,"Script running - Normal operation",current_folder)
+        write_status(vbat,"Script running - Normal operation",current_folder)
         # at night, turn ON selected illumination LEDs if always ON mode
         if(LED_mode_night == "on" and night_time_check and LED_status == False):
             print("Turning illumination LEDs ON after voltage reading")
@@ -524,7 +508,7 @@ while(True):
                     #when there is a memory error, we assume that it is triggered because of many blobs
                     triggered = True
                     picture_count += 1
-                    save_status("-","memory error",current_folder)
+                    write_status("-","memory error",current_folder)
             #if frame differencing is disabled, every image is considered triggered and counted outside live view mode
             elif (MODE != 0):
                 triggered = True
@@ -674,15 +658,15 @@ while(True):
             light.pulse_width_percent(0)
             LED_status = False
         # save variables and log status before going ot sleep
-        save_variables(current_folder, picture_count, detection_count)
-        save_status(vbat,"Delay loop - Sleeping",current_folder)
+        write_filevars(current_folder, picture_count, detection_count)
+        write_status(vbat,"Delay loop - Sleeping",current_folder)
         # go to sleep until next picture with blinking indicator
         indicator_dsleep(delay_loop_s*1000,active_LED_interval_ms)
 
         # (when light sleep is used) check voltage and save status, if battery too low -> sleep until sunrise
         vbat = vdiv_bat.read_voltage()
         if (vbat!="NA" and vbat<vbat_minimum):
-            save_variables(current_folder, picture_count, detection_count)
-            save_status(vbat,"Battery low - Sleeping",current_folder)
+            write_filevars(current_folder, picture_count, detection_count)
+            write_status(vbat,"Battery low - Sleeping",current_folder)
             indicator_dsleep(solartime.time_until_sunrise()+30*60*1000,active_LED_interval_ms)
-        save_status(vbat,"Delay loop - waking",current_folder)
+        write_status(vbat,"Delay loop - waking",current_folder)

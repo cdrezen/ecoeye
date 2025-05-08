@@ -115,45 +115,6 @@ def expose(exposure_control,exposure_bias_day,exposure_bias_night,gain_bias,expo
         # TODO:possibly turn off LEDs here if it works with subsequent fd function and image capture
     return
 
-# ━━━━━━━━━━ 𝗦𝗗 𝗖𝗔𝗥𝗗 𝗦𝗔𝗩𝗜𝗡𝗚 ━━━━━━━━━━
-# ⚊⚊⚊⚊⚊ save status log ⚊⚊⚊⚊⚊
-# Save status log
-# --- Input arguments ---
-# vbat - voltage of batteries
-# status - user-defined string describing the status to save in the log
-# pathstr - path of the folder, string type
-# --- Output variables ---
-# none
-def save_status(vbat,status="NA",folder='/'):
-    print("Saving '",status,"' into status log.")
-    adc  = pyb.ADCAll(12)
-    if(not 'status.csv' in os.listdir(str(folder))):
-        with open(str(folder)+'/status.csv', 'a') as statuslog:
-            statuslog.write("date_time" + ',' + "status" + ',' + "battery_voltage" + ',' + "USB_connected" + ',' + "core_temperature_C" + '\n')
-    with open(str(folder)+'/status.csv', 'a') as statuslog:
-        statuslog.write(str("-".join(map(str,time.localtime()[0:6])))+ ',' + status + ',' + str(vbat) + ',' + str(pyb.USB_VCP().isconnected()) + ',' + str(adc.read_core_temp()) + '\n')
-    return
-
-# ⚊⚊⚊⚊⚊ save variables ⚊⚊⚊⚊⚊
-# save the dynamic variables in the VAR folder
-# --- Input arguments ----
-# current_folder - name of the current folder
-# picture_count - name/number of the current picture
-# detection_count - name/number of the current detection
-# --- Output variables ---
-# none
-def save_variables(current_folder, picture_count, detection_count):
-    # create file in VAR folder and write current folder name
-    with open('/VAR/currentfolder.txt', 'w') as folderlog:
-        folderlog.write(str(current_folder))
-    # create file on root and write current picture ID
-    with open('/VAR/picturecount.txt', 'w') as countlog:
-        countlog.write(str(picture_count))
-    # create file on root and write current detection ID
-    with open('/VAR/detectioncount.txt', 'w') as countlog:
-        countlog.write(str(detection_count))
-    return
-
 # ━━━━━━━━━━ 𝗜𝗠𝗔𝗚𝗘 𝗔𝗡𝗔𝗟𝗬𝗦𝗜𝗦 ━━━━━━━━━━
 # ⚊⚊⚊⚊⚊ Deferred analysis ⚊⚊⚊⚊⚊
 # deferred analysis of images when scale is too small (not working yet)
