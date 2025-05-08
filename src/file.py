@@ -1,5 +1,6 @@
 from config.settings import fd_enable, use_roi, rois, export_blobs
 import os, time
+import pyb
 
 def read_filevars():
     # retrieve current working folder name in VAR
@@ -51,7 +52,7 @@ def write_status(vbat,status="NA",folder='/'):
         statuslog.write(str("-".join(map(str,time.localtime()[0:6])))+ ',' + status + ',' + str(vbat) + ',' + str(pyb.USB_VCP().isconnected()) + ',' + str(adc.read_core_temp()) + '\n')
     return
 
-def init_files():
+def init_files(current_folder, rtc):
         # if VAR folder doesnt exists,create new VAR folder
     if (not "VAR" in os.listdir()):
         os.mkdir('VAR')
@@ -97,3 +98,4 @@ def init_files():
         for roi_temp in rois:
             if not '_'.join(map(str,roi_temp)) in os.listdir(str(current_folder)+"/jpegs"): os.mkdir(str(current_folder)+"/jpegs/"+'_'.join(map(str,roi_temp)))
             print("Created",'_'.join(map(str,roi_temp)),"subfolder(s)")
+    return current_folder

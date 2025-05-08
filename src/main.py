@@ -55,7 +55,7 @@ if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
 # create and initialize new folders only on powerup or soft reset
 if (machine.reset_cause() != machine.DEEPSLEEP_RESET and MODE != 0):
     # create necessary files & folders
-    init_files()
+    current_folder = init_files(current_folder, rtc)
     #start counting
     picture_count = 0
     detection_count = 0
