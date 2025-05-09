@@ -13,21 +13,22 @@ from timeutil import suntime, rtc
 from classify import load_model
 from file import read_filevars, write_filevars, write_status, init_files
 
-# perform quick start from sleep check
-start_check()
+
 # set settings according to user defined shortcut mode
 apply_mode(MODE)
 from config.settings import *# reimport settings (ugly: TODO: name settings module or use object)
 
+
+AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
 # create voltage divider class instance
 vdiv_bat = vdiv_build()
-
-### TIME SET/UPDATE ###
 # initialise time objects & print date and time from set or updated RTC
 solartime = suntime(operation_time,sunrise_hour,sunrise_minute,sunset_hour,sunset_minute)
 rtc = rtc()
-print("Current date (Y,M,D):",rtc.datetime()[0:3],"and time (H,M,S):",rtc.datetime()[4:7])
-
+exposure_values = exposure_bracketing_values if use_exposure_bracketing else [1]
+# 50kHz pin6 timer2 channel1 ?
+light = Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6"))
+LED_status = False
 current_folder, picture_count, detection_count = None, None, None
 
 def check_battery_sleep(vbat=None, print_status=""):
@@ -39,13 +40,10 @@ def check_battery_sleep(vbat=None, print_status=""):
     if is_battery_low(vbat):
         write_filevars(current_folder, picture_count, detection_count)
         write_status(vbat,"Battery low - Sleeping", current_folder)
-        indicator_dsleep(solartime.time_until_sunrise()+30*60*1000,active_LED_interval_ms)
+        indicator_dsleep(solartime.time_until_sunrise() + AFTER_SUNRISE_DELAY, active_LED_interval_ms)
 
-### FILES & FOLDERS ###
-
-#import mobilenet model and labels before new directory is created
-if(classify_mode != "none"):
-    labels, non_target_indices = load_model()
+# perform quick start from sleep check
+start_check()
 
 # On wakeup from deep sleep, fetch variables from files
 if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
@@ -56,30 +54,22 @@ if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
 if (machine.reset_cause() != machine.DEEPSLEEP_RESET and MODE != 0):
     # create necessary files & folders
     current_folder = init_files(current_folder, rtc)
-    #start counting
     picture_count = 0
     detection_count = 0
-    # check voltage and save status, if battery too low -> sleep until sunrise
     check_battery_sleep(print_status="Script start - Initialising")
 
-# ━━━━━━━━━━ 𝗕𝗢𝗔𝗥𝗗 𝗖𝗢𝗡𝗧𝗥𝗢𝗟 ━━━━━━━━━━
+#import mobilenet model and labels
+if(classify_mode != "none"):
+    labels, non_target_indices = load_model()
+
 # verify that wifi shield is connected when wifi is enabled
 if(wifi_enable):
     wifi_enable = wifishield_isconnnected()
-# 50kHz pin6 timer2 channel1
-light = Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6"))
-# init led status variables
-LED_status = False
 
-# ━━━━━━━━━━ 𝗣𝗜𝗖𝗧𝗨𝗥𝗘 𝗩𝗔𝗥𝗜𝗔𝗕𝗟𝗘𝗦 ━━━━━━━━━━
-#user setting checks
-if (fd_enable and exposure_control=="auto"):
+if (fd_enable and exposure_control=="auto"): 
     print("ATTENTION: using automatic exposure with frame differencing can result in spurious triggers!")
-#determine exposure values
-if (exposure_bracketing):
-    exposure_values=exposure_bracketing_values
-else:
-    exposure_values=[1]
+
+
 # ━━━━━━━━━━ 𝗦𝗘𝗡𝗦𝗢𝗥 𝗜𝗡𝗜𝗧 ━━━━━━━━━━
 #indicate initialisation with LED
 LED_WHITE_BLINK(200,3)
@@ -323,7 +313,7 @@ while(True):
     current_gain=sensor.get_gain_db()
     #loop over exposure values
     for b in exposure_values:
-        if (exposure_bracketing):
+        if (use_exposure_bracketing):
             #fix the gain so image is stable
             sensor.set_auto_gain(False, gain_db = current_gain)
             print("Exposure bracketing bias:",b)
@@ -563,7 +553,7 @@ while(True):
                     cp_img.save("cp_img.jpg",quality=jpeg_quality)
             print("Frames per second: %s" % str(round(clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
     #turn auto image adjustments back on if bracketing
-    if (exposure_bracketing):
+    if (use_exposure_bracketing):
         if(exposure_control=="auto"):
             #auto gain and exposure
             sensor.set_auto_gain(True)

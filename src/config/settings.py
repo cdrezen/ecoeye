@@ -65,7 +65,7 @@ jpeg_quality = 93
 #manual: fixing exposure time and gain
 exposure_control = "auto"
 #whether to use exposure bracketing
-exposure_bracketing = False
+use_exposure_bracketing = False
 
 # ⚊⚊⚊⚊⚊ bias mode only parameters ⚊⚊⚊⚊⚊
 #settings for bias mode: This is the user-defined multiplicative bias for the exposure time. Multiplies the automatic exposure time with this value. Values above 1 brighten the image, values below 1 darken it.
@@ -230,13 +230,13 @@ def apply_mode(mode: int = MODE):
     :param mode: shortcut mode
     """
     if (mode == 0 or mode == 2):
-        global fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, exposure_bracketing, RTC_select, save_roi
+        global fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi
         fd_enable = False
         classify_mode = "none"
         operation_time = "24h"
         exposure_control = "auto"
         delay_loop_s = 0
-        exposure_bracketing = False
+        use_exposure_bracketing = False
         RTC_select = 'onboard'
         if (mode == 0):
             save_roi = "none"
