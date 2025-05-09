@@ -94,7 +94,7 @@ LED_module = False
 # which LEDs to use
 # module : installed LED module, can be IR or White LEDs
 # onboard : use onboard IR LEDs
-LED_select = "onboard"
+LED_mode = "onboard"
 #operation mode for onboard IR or module LEDs at night. Options:
 #on: continuously ON during night time . Should be used for continuous illumination with frame differencing
 #blink: power-saving intermittent powering on. Should be used to save power, but only when using models to detect targets, since illumination will be unstable
@@ -103,7 +103,7 @@ LED_night_mode = "off"
 
 # ⚊⚊⚊⚊⚊ LED module only parameters ⚊⚊⚊⚊⚊
 #PWM (brightness) of the plug-in LED module
-LED_module_PWM = 100
+LED_module_brightness_pwm = 100
 #how long to turn the LED module on (milliseconds) - should possibly not be longer than 3 seconds for IR module
 LED_module_warmup = 3000
 #how long to turn the LED module off (milliseconds) - should possibly be longer than 5 seconds for IR module

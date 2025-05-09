@@ -26,9 +26,7 @@ vdiv_bat = vdiv_build()
 solartime = suntime(operation_time,sunrise_hour,sunrise_minute,sunset_hour,sunset_minute)
 rtc = rtc()
 exposure_values = exposure_bracketing_values if use_exposure_bracketing else [1]
-# 50kHz pin6 timer2 channel1 ?
-light = Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6"))
-illumination_enabled = False
+illumination = Illumination()
 current_folder, picture_count, detection_count = None, 0, 0
 
 
@@ -98,8 +96,8 @@ sensor.skip_frames(time=1000)
 
 #parameter validity checks
 if (windowing_y + windowing_h > sensor.height() or windowing_x + windowing_w > sensor.width()):
-    print(windowing_y, windowing_h, sensor.height())
-    print(windowing_x, windowing_w, sensor.width())
+    print("windowing_y:", windowing_y, "windowing_h:", windowing_h, "sensor.height:", sensor.height())
+    print("windowing_x:", windowing_x, "windowing_w:", windowing_w, "sensor.width:", sensor.width())
     sys.exit("Windowing dim exceeds image dim!")
 
 if(not use_roi and MODE != 0):
@@ -113,15 +111,8 @@ if(not use_roi and MODE != 0):
 
 #adjusting exposure
 # at night, turn ON selected illumination LEDs if not always OFF mode
-if(LED_night_mode != "off" and is_night and illumination_enabled == False):
-    print("Turning illumination LEDs ON for exposure adjustment")
-    if(LED_select == 'module'):
-        print("Warming up LED module for",LED_module_warmup/1000,"seconds.")
-        light.pulse_width_percent(LED_module_PWM)
-        sensor.skip_frames(time = LED_module_warmup)
-    if(LED_select == 'onboard'):
-        LED_IR_ON()
-    illumination_enabled = True
+if(illumination.can_turn_on(is_night)):
+    illumination.on(message="for exposure adjustment")
 
 expose(exposure_mode,exposure_bias_day,exposure_bias_night,gain_bias,exposure_ms,gain_dB,is_night)
 
@@ -145,15 +136,8 @@ if(frame_differencing_enabled):
     print("Saved background image - now frame differencing!")
 
 # after exposure adjustment, turn OFF selected illumination LEDs if not always ON mode
-if (LED_night_mode != "on" and illumination_enabled == True):
-    print("Turning illumination LEDs OFF to save power...")
-    if(LED_select == 'module'):
-        light.pulse_width_percent(0)
-        print("Letting LED module cool down for",LED_module_cooldown,"seconds.")
-        pyb.delay(LED_module_cooldown)
-    if(LED_select == 'onboard'):
-        LED_IR_OFF()
-    illumination_enabled = False
+if (illumination.can_turn_off()):
+    illumination.off(message="to save power...")
 
 #start counting time
 start_time_status_ms = pyb.millis()
@@ -173,11 +157,7 @@ while(True):
         # outside of operation time
         print("Outside operation time - current time:",time.localtime()[0:6])
         # before deep sleep, turn off illumination LEDs if on
-        if(illumination_enabled == True):
-            print("Turning illumination LEDs OFF before deep sleep")
-            LED_IR_OFF()
-            light.pulse_width_percent(0)
-            illumination_enabled = False
+        illumination.off("before deep sleep")
         #deferred analysis of images when scale is too small (not working yet)
         if(minimum_image_scale<threshold_image_scale_defer):
             print("Starting deferred analysis of images before sleeping...")
@@ -197,26 +177,8 @@ while(True):
     # update night time check
     is_night = not solartime.is_daytime()
 
-    # turn ON illumination LED at night if always ON
-    if(is_night and LED_night_mode == "on" and illumination_enabled == False):
-        print("Turning illumination LEDs ON during nighttime")
-        if(LED_select == 'module'):
-            print("Warming up LED module for",LED_module_warmup/1000,"seconds.")
-            light.pulse_width_percent(LED_module_PWM)
-            sensor.skip_frames(time = LED_module_warmup)
-        if(LED_select == 'onboard'):
-            LED_IR_ON()
-        illumination_enabled = True
-    # turn OFF illumination LED at daytime
-    if(not is_night and illumination_enabled == True):
-        print("Turning illumination LEDs OFF during daytime")
-        if(LED_select == 'module'):
-            light.pulse_width_percent(0)
-            print("Letting LED module cool down for",LED_module_cooldown,"seconds.")
-            pyb.delay(LED_module_cooldown)
-        if(LED_select == 'onboard'):
-            LED_IR_OFF()
-        illumination_enabled = False
+    # turn ON illumination LED at night if always ON || turn OFF illumination LED at daytime
+    illumination.update(is_night)
 
     #log status and battery voltage (if possible) every period
     if (pyb.elapsed_millis(start_time_status_ms) > status_logging_period_ms):
@@ -225,15 +187,7 @@ while(True):
         if(RTC_select != 'onboard'): ext_rtc.get_time(True)
         print("Updated time (Y,M,D):",rtc.datetime()[0:3],"and time (H,M,S):",rtc.datetime()[4:7])
         # turn on OFF LED module during voltage reading
-        if(illumination_enabled == True):
-            print("Turning illumination LEDs OFF during voltage reading")
-            if(LED_select == 'module'):
-                light.pulse_width_percent(0)
-                print("Letting LED module cool down for",LED_module_cooldown,"seconds.")
-                pyb.delay(LED_module_cooldown)
-            if(LED_select == 'onboard'):
-                LED_IR_OFF()
-            illumination_enabled = False
+        illumination.off(message="during voltage reading")
         # check voltage and save status, if battery too low -> sleep until sunrise
         vbat = vdiv_bat.read_voltage()
         if (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected()):
@@ -242,15 +196,8 @@ while(True):
             indicator_dsleep(solartime.time_until_sunrise()+30*60*1000,active_LED_interval_ms)
         write_status(vbat,"Script running - Normal operation",current_folder)
         # at night, turn ON selected illumination LEDs if always ON mode
-        if(LED_night_mode == "on" and is_night and illumination_enabled == False):
-            print("Turning illumination LEDs ON after voltage reading")
-            if(LED_select == 'module'):
-                print("Warming up LED module for",LED_module_warmup/1000,"seconds.")
-                light.pulse_width_percent(LED_module_PWM)
-                sensor.skip_frames(time = LED_module_warmup)
-            if(LED_select == 'onboard'):
-                LED_IR_ON()
-            illumination_enabled = True
+        if(illumination.can_turn_on(is_night)):
+            illumination.on(message="after voltage reading")
 
     #blink LED every period
     if (pyb.elapsed_millis(start_time_active_LED_ms) > active_LED_interval_ms):
@@ -262,16 +209,11 @@ while(True):
     #wait up to twice expose period
     if (exposure_mode!="auto" and (pyb.elapsed_millis(start_time_blending_ms) > expose_period_s*1000) and (not triggered or not frame_differencing_enabled)
     or (exposure_mode!="auto" and (pyb.elapsed_millis(start_time_blending_ms) > 2*expose_period_s*1000))):
+        
         # at night, turn ON selected illumination LEDs if not always OFF mode
-        if(LED_night_mode != "off" and is_night and illumination_enabled == False):
-            print("Turning illumination LEDs ON for exposure adjustment")
-            if(LED_select == 'module'):
-                print("Warming up LED module for",LED_module_warmup/1000,"seconds.")
-                light.pulse_width_percent(LED_module_PWM)
-                sensor.skip_frames(time = LED_module_warmup)
-            if(LED_select == 'onboard'):
-                LED_IR_ON()
-            illumination_enabled = True
+        if(illumination.can_turn_on(is_night)):
+            illumination.on(message="for exposure adjustment")
+
         expose(exposure_mode,exposure_bias_day,exposure_bias_night,gain_bias,exposure_ms,gain_dB,is_night)
         #blend new frame only if frame differencing
         if (frame_differencing_enabled):
@@ -299,15 +241,8 @@ while(True):
         start_time_blending_ms = pyb.millis()
 
         # after exposure adjustment, turn OFF selected illumination LEDs if not always ON mode
-        if (LED_night_mode != "on" and illumination_enabled == True):
-            print("Turning illumination LEDs OFF to save power...")
-            if(LED_select == 'module'):
-                light.pulse_width_percent(0)
-                print("Letting LED module cool down for",LED_module_cooldown,"seconds.")
-                pyb.delay(LED_module_cooldown)
-            if(LED_select == 'onboard'):
-                LED_IR_OFF()
-            illumination_enabled = False
+        if (illumination.can_turn_off()):
+            illumination.off(message="to save power...")
 
     # TAKING PICTURE
     #current image parameters
@@ -324,28 +259,14 @@ while(True):
             #wait for new exposure time to be applied
             sensor.skip_frames(time = 2000)
         # at night, turn ON selected illumination LEDs if not always OFF mode
-        if(LED_night_mode != "off" and is_night and illumination_enabled == False):
-            print("Turning illumination LEDs ON for taking the picture")
-            if(LED_select == 'module'):
-                print("Warming up LED module for",LED_module_warmup/1000,"seconds.")
-                light.pulse_width_percent(LED_module_PWM)
-                sensor.skip_frames(time = LED_module_warmup)
-            if(LED_select == 'onboard'):
-                LED_IR_ON()
-            illumination_enabled = True
+        if(illumination.can_turn_on(is_night)):
+            illumination.on(message="to take the picture")
 
         img = sensor.snapshot()
 
         # after picture, turn OFF selected illumination LEDs if not always ON mode
-        if (LED_night_mode != "on" and illumination_enabled == True):
-            print("Turning illumination LEDs OFF to save power...")
-            if(LED_select == 'module'):
-                light.pulse_width_percent(0)
-                print("Letting LED module cool down for",LED_module_cooldown,"seconds.")
-                pyb.delay(LED_module_cooldown)
-            if(LED_select == 'onboard'):
-                LED_IR_OFF()
-            illumination_enabled = False
+        if (illumination.can_turn_off()): 
+            illumination.off(message="to save power...")
 
         #log time
         picture_time = "-".join(map(str,time.localtime()[0:6]))
@@ -599,11 +520,7 @@ while(True):
 
     if (delay_loop_s > delay_threshold_sleep_s):
         # before deep sleep, turn off illumination LEDs if on
-        if(illumination_enabled == True):
-            print("Turning illumination LEDs OFF before deep sleep")
-            LED_IR_OFF()
-            light.pulse_width_percent(0)
-            illumination_enabled = False
+        illumination.off(no_cooldown=True, message="before deep sleep")
         # save variables and log status before going ot sleep
         write_filevars(current_folder, picture_count, detection_count)
         write_status(vbat,"Delay loop - Sleeping",current_folder)

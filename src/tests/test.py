@@ -25,11 +25,31 @@ else:
    assert vbat.read_voltage() > 0
 ###
 
+from hardware.led import *
+import time
+
+
 ### test led
 
+### test illumination
+sensor.reset()
+sensor.set_pixformat(sensor_pixformat)
+sensor.set_framesize(sensor_framesize)
+illumination = Illumination()
+illumination.on()
+time.sleep(2)
+illumination.off()
+time.sleep(2)
+illumination.toggle()
+time.sleep(2)
+illumination.update(True)
+time.sleep(2)
+illumination.update(False)
+time.sleep(2)
+illumination.off()
+
 ### test timeutil
-from timeutil import suntime, rtc
-import time
+from timeutil import *
 
 solartime = suntime(operation_time,sunrise_hour,sunrise_minute,sunset_hour,sunset_minute)
 rtc = rtc()

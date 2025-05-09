@@ -1,5 +1,8 @@
 ### LED FUNCTIONS ###
 import pyb
+from pyb import Pin, Timer
+import sensor
+
 # ⚊⚊⚊⚊⚊ LED ON ⚊⚊⚊⚊⚊
 def LED_RED_ON():
     LED_RGB_OFF()
@@ -213,20 +216,61 @@ def LED_CYCLE(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     return
 
-class illumination:
-    
-    def __init__(self):
-        
+from config.settings import LED_mode, LED_night_mode, LED_module_brightness_pwm, LED_module_warmup, LED_module_cooldown
+
+class Illumination:
+
+    def __init__(self, mode=LED_mode, led_night_mode=LED_night_mode, brightness=LED_module_brightness_pwm, warmup_ms=LED_module_warmup, cooldown_ms=LED_module_cooldown):
+        self.light = Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6"))
+        self.enabled = False
+        self.mode = mode
+        self.led_night_mode = led_night_mode
+        self.brightness = brightness
+        self.warmup_ms = warmup_ms
+        self.cooldown_ms = cooldown_ms
         return
 
-    def on(self):
-        
+    def on(self, message=""):
+        if(self.enabled): return
+        self.enabled = True
+        print("Turning illumination LEDs ON", message)
+        if(self.mode == 'module'):
+            print("Warming up LED module for",self.warmup_ms/1000,"seconds.")
+            self.light.pulse_width_percent(self.brightness)
+            sensor.skip_frames(time = self.warmup_ms)
+        elif(self.mode == 'onboard'):
+            LED_IR_ON()
         return
 
-    def off(self):
+    def off(self, no_cooldown=False, message=""):
+        if(not self.enabled): return
+        self.enabled = False
+        print("Turning illumination LEDs OFF", message)
+        if(self.mode == 'module'):
+            self.light.pulse_width_percent(0)
+            if(no_cooldown): return
+            print("Letting LED module cool down for",self.cooldown_ms,"seconds.")
+            pyb.delay(self.cooldown_ms)
+        elif(self.mode == 'onboard'):
+            LED_IR_OFF()
+        return
 
-        return
+    def toggle(self, no_cooldown=False):
+        self.off(no_cooldown) if self.enabled else self.on()
         
-    def off_cooldown(self):
-        
-        return
+    def is_enabled(self):
+        return self.enabled
+
+    def can_turn_on(self, is_night):
+        return not self.enabled and is_night and (self.led_night_mode == "on" or self.led_night_mode != 'off')
+
+    def can_turn_off(self):
+        return self.enabled and self.led_night_mode != 'on'
+
+    def update(self, is_night):
+        if is_night:
+            if self.can_turn_on(is_night):
+                self.on("during nighttime")
+                
+        else:
+            self.off("during daytime")
