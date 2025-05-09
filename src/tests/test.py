@@ -3,15 +3,15 @@ from config.settings import *
 MODE = 0
 apply_mode(MODE)
 from config.settings import *
-print(fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi)
+print(frame_differencing_enabled, classify_mode, operation_time, exposure_mode, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi)
 
-assert (fd_enable == False and classify_mode == "none" and operation_time == "24h" and exposure_control == "auto" 
+assert (frame_differencing_enabled == False and classify_mode == "none" and operation_time == "24h" and exposure_mode == "auto" 
         and delay_loop_s == 0 and use_exposure_bracketing == False and RTC_select == 'onboard' and save_roi == "none")
 
 MODE = 2
 apply_mode(MODE)
 from config.settings import *
-print(fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi)
+print(frame_differencing_enabled, classify_mode, operation_time, exposure_mode, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi)
 assert save_roi == "all"
 ###
 

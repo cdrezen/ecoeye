@@ -1,4 +1,4 @@
-from config.settings import fd_enable, use_roi, rois, export_blobs
+from config.settings import frame_differencing_enabled, use_roi, rois_rects, export_blobs
 import os, time
 import pyb
 
@@ -92,10 +92,10 @@ def init_files(current_folder, rtc):
             + "image_type" + ',' + "roi_x" + ',' + "roi_y" + ',' + "roi_width" + ',' + "roi_height" + '\n')
     #make jpeg, reference image and ROI directories if needed
     if (not "jpegs" in os.listdir(str(current_folder))): os.mkdir(str(current_folder)+"/jpegs")
-    if (fd_enable and not "reference" in os.listdir(str(current_folder)+"/jpegs")): os.mkdir(str(current_folder)+"/jpegs/reference")
+    if (frame_differencing_enabled and not "reference" in os.listdir(str(current_folder)+"/jpegs")): os.mkdir(str(current_folder)+"/jpegs/reference")
     if (export_blobs!="none" and not "blobs" in os.listdir(str(current_folder)+"/jpegs")): os.mkdir(str(current_folder)+"/jpegs/blobs")
     if use_roi:
-        for roi_temp in rois:
+        for roi_temp in rois_rects:
             if not '_'.join(map(str,roi_temp)) in os.listdir(str(current_folder)+"/jpegs"): os.mkdir(str(current_folder)+"/jpegs/"+'_'.join(map(str,roi_temp)))
             print("Created",'_'.join(map(str,roi_temp)),"subfolder(s)")
     return current_folder

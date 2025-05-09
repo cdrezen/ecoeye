@@ -212,3 +212,21 @@ def LED_CYCLE(blinktime=1000,blinks=1):
     LED_WHITE_BLINK(blinktime,blinks)
     LED_RGB_OFF()
     return
+
+class illumination:
+    
+    def __init__(self):
+        
+        return
+
+    def on(self):
+        
+        return
+
+    def off(self):
+
+        return
+        
+    def off_cooldown(self):
+        
+        return

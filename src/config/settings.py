@@ -25,7 +25,7 @@ sensor_framesize = sensor.WQXGA2
 #GRAYSCALE = black & white)
 sensor_pixformat = sensor.RGB565
 #whether to digitally zoom into image
-sensor_windowing = False
+use_sensor_windowing = False
 #introduce delay between pictures (seconds). Otherwise with a delay of 0, the camera runs at maximum speed
 delay_loop_s = 0
 #for saving whole images or regions of interest (ROIs). Options:
@@ -46,10 +46,10 @@ windowing_h = 1944
 # ⚊⚊⚊⚊⚊ advanced settings ⚊⚊⚊⚊⚊
 #whether to use user-defined rois (regions of interest)
 use_roi = False
-rois = [(197,742,782,753),(1309,1320,560,460)]
+rois_rects = [(197,742,782,753),(1309,1320,560,460)]
 #whether to control number of frame buffers
-sensor_framebuffers_control = False
-sensor_framebuffers = 1
+use_sensor_framebuffers = False
+nb_sensor_framebuffers = 1
 #threshold above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
 delay_threshold_sleep_s = 10
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
@@ -63,7 +63,7 @@ jpeg_quality = 93
 #bias: adjusting exposure and gain automatically at regular intervals (time period can be defined below) but with a user-defined bias for exposure time and gain
 #exposure: fixing exposure time, while adjusting gain at regular intervals (time period can be defined below)
 #manual: fixing exposure time and gain
-exposure_control = "auto"
+exposure_mode = "auto"
 #whether to use exposure bracketing
 use_exposure_bracketing = False
 
@@ -99,7 +99,7 @@ LED_select = "onboard"
 #on: continuously ON during night time . Should be used for continuous illumination with frame differencing
 #blink: power-saving intermittent powering on. Should be used to save power, but only when using models to detect targets, since illumination will be unstable
 #off: always OFF
-LED_mode_night = "off"
+LED_night_mode = "off"
 
 # ⚊⚊⚊⚊⚊ LED module only parameters ⚊⚊⚊⚊⚊
 #PWM (brightness) of the plug-in LED module
@@ -112,7 +112,7 @@ LED_module_cooldown = 0
 # ━━━━━━━━━━ 𝗙𝗥𝗔𝗠𝗘 𝗗𝗜𝗙𝗙𝗘𝗥𝗘𝗡𝗖𝗜𝗡𝗚 ━━━━━━━━━━
 #whether to use frame differencing. This subtracts every current image from a reference image, resulting in dark images when there is no change.
 #a change will introduce a "blob" in the otherwise dark image, which can be detected, logged, and characterised
-fd_enable = False
+frame_differencing_enabled = False
 
 # ⚊⚊⚊⚊⚊ FD enabled only parameters ⚊⚊⚊⚊⚊
 #action for blobs. options:
@@ -230,11 +230,11 @@ def apply_mode(mode: int = MODE):
     :param mode: shortcut mode
     """
     if (mode == 0 or mode == 2):
-        global fd_enable, classify_mode, operation_time, exposure_control, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi
-        fd_enable = False
+        global frame_differencing_enabled, classify_mode, operation_time, exposure_mode, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi
+        frame_differencing_enabled = False
         classify_mode = "none"
         operation_time = "24h"
-        exposure_control = "auto"
+        exposure_mode = "auto"
         delay_loop_s = 0
         use_exposure_bracketing = False
         RTC_select = 'onboard'
