@@ -11,7 +11,7 @@ from hardware.voltage_divider import vdiv_build, is_battery_low
 from hardware.led import *
 from timeutil import suntime, rtc
 from classify import load_model
-from file import read_filevars, write_filevars, write_status, init_files
+from logging.file import read_filevars, write_filevars, write_status, init_files
 
 
 # set settings according to user defined shortcut mode
@@ -99,7 +99,7 @@ def init():
     # create and initialize new folders only on powerup or soft reset
     if (machine.reset_cause() != machine.DEEPSLEEP_RESET and MODE != 0):
         # create necessary files & folders
-        current_folder = init_files(current_folder, rtc)
+        current_folder = init_files(rtc)
         picture_count = 0
         detection_count = 0
         check_battery_sleep(print_status="Script start - Initialising")
@@ -175,7 +175,7 @@ def init():
     start_time_blending_ms = pyb.millis()
     start_time_active_LED_ms = pyb.millis()
     clock = time.clock()
-
+    return
 
 init()
 
