@@ -111,12 +111,11 @@ def init_files(rtc):
     if (export_blobs!="none" and not "blobs" in filenames): 
         os.mkdir(str(new_folder_name)+"/jpegs/blobs")
 
-    if (use_roi):
-        for roi_temp in rois_rects:
-            subfolder_name = '_'.join(map(str,roi_temp))
-            if (not subfolder_name in filenames): 
-                os.mkdir(str(new_folder_name)+"/jpegs/"+subfolder_name)
-                print("Created ROI",subfolder_name,"subfolder.")
+    for roi_temp in rois_rects:
+        subfolder_name = '_'.join(map(str,roi_temp))
+        if (not subfolder_name in filenames): 
+            os.mkdir(str(new_folder_name)+"/jpegs/"+subfolder_name)
+            print("Created ROI",subfolder_name,"subfolder.")
 
     ### tests ###
 

@@ -98,6 +98,11 @@ def init():
 
     # create and initialize new folders only on powerup or soft reset
     if (machine.reset_cause() != machine.DEEPSLEEP_RESET and MODE != 0):
+
+        if(not use_roi):
+            #assign roi to entire image if we do not use them
+            rois_rects = [(0,0,sensor.width(),sensor.height())]
+            
         # create necessary files & folders
         current_folder = init_files(rtc)
         picture_count = 0
@@ -139,15 +144,6 @@ def init():
         print("windowing_y:", windowing_y, "windowing_h:", windowing_h, "sensor.height:", sensor.height())
         print("windowing_x:", windowing_x, "windowing_w:", windowing_w, "sensor.width:", sensor.width())
         sys.exit("Windowing dim exceeds image dim!")
-
-    if(not use_roi and MODE != 0):
-        #assign roi to entire image if we do not use them
-        rois_rects = [(0,0,sensor.width(),sensor.height())]
-        # create directory for jpegs if not already created
-        roi_dirname = '_'.join(map(str,rois_rects[0]))
-        if not roi_dirname in os.listdir(str(current_folder)+"/jpegs"): 
-            os.mkdir(str(current_folder)+"/jpegs"+"/"+roi_dirname)
-            print("Created",roi_dirname,"subfolder")
 
     #Frame buffer memory management
     if(frame_differencing_enabled):
