@@ -25,13 +25,19 @@ class Csv:
         # else: raise Exception(f"Csv file {self.path} already exists.")
         return
 
-    def append(self, *data):
+    def append(self, prepend_comma=False, end_line=True, *data):
         """
         Append data to the CSV file.
         :param data: List of data to append to the CSV file.
         """
+        
+        print(self.path)
+
         with open(self.path, 'a') as file:
-            file.write(','.join(map(str, data)) + '\n')
+            start = ',' if prepend_comma else ''
+            ending = '\n' if end_line else ''
+            data = ','.join([str(d) for d in data]) if data else ''
+            file.write(start + data + ending)
         return
 
     def read(self):

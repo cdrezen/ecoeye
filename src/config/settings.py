@@ -246,3 +246,7 @@ def apply_mode(mode: int = MODE):
             print("*** Live capture enabled! ***")
     # or not in normal mode
     elif (mode == 1): print("*** Deployment started! ***")
+
+    if(mode != 0 and not use_roi):
+        #assign roi to entire image if we do not use them
+        rois_rects = [(0,0,sensor.width(),sensor.height())]

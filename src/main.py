@@ -29,6 +29,7 @@ exposure_values = exposure_bracketing_values if use_exposure_bracketing else [1]
 last_exposure = 0
 illumination = Illumination()
 current_folder, picture_count, detection_count = None, 0, 0
+imagelog, detectionlog = None, None
 is_night = not solartime.is_daytime()
 # future image width and height
 image_width = windowing_w if use_sensor_windowing else sensor.width()
@@ -86,8 +87,10 @@ def take_picture(do_expose, exposure_mult = None):
     return img, picture_time
 
 def init():
-    global current_folder, picture_count, detection_count, start_time_status_ms, start_time_blending_ms, start_time_active_LED_ms, clock
+    global current_folder, picture_count, detection_count, imagelog, detectionlog
+    global start_time_status_ms, start_time_blending_ms, start_time_active_LED_ms, clock
     global rois_rects, labels, non_target_indices, wifi_enable, img_ref_fb, img_ori_fb
+    
     # perform quick start from sleep check
     start_check()
 
@@ -99,14 +102,9 @@ def init():
     # create and initialize new folders only on powerup or soft reset
     if (machine.reset_cause() != machine.DEEPSLEEP_RESET and MODE != 0):
 
-        if(not use_roi):
-            #assign roi to entire image if we do not use them
-            rois_rects = [(0,0,sensor.width(),sensor.height())]
-            
         # create necessary files & folders
-        current_folder = init_files(rtc)
-        picture_count = 0
-        detection_count = 0
+        current_folder, imagelog, detectionlog = init_files(rtc)
+
         check_battery_sleep(print_status="Script start - Initialising")
 
     #import mobilenet model and labels
@@ -160,10 +158,13 @@ def init():
         img, picture_time = take_picture(do_expose=True)
         img_ref_fb.replace(img)
 
-        img_ref_fb.save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",quality=jpeg_quality)
-        with open(str(current_folder)+'/images.csv', 'a') as imagelog:
-                    imagelog.write(str(picture_count) + ',' + str(picture_time) + ',' + str(sensor.get_exposure_us()) +
-                    ',' + str(sensor.get_gain_db()) + ',' + "NA" + ',' + "reference" + '\n')
+        img_ref_fb.save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",
+                        quality=jpeg_quality)
+
+        imagelog.append(picture_count, picture_time, 
+                        sensor.get_exposure_us(), sensor.get_gain_db(), 
+                        "NA", "reference")
+
         print("Saved background image - now frame differencing!")
 
     #start counting time
@@ -247,12 +248,17 @@ while(True):
             # blending of the new image. We need to reverse that for this update.
             #blend with frame that is in buffer
             if indicators: LED_CYAN_ON()
+            
             img_ori_fb.blend(img_ref_fb, alpha=(256-background_blend_level))
             img_ref_fb.replace(img_ori_fb)
-            img_ref_fb.save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",quality=jpeg_quality)
-            with open(str(current_folder)+'/images.csv', 'a') as imagelog:
-                imagelog.write(str(picture_count) + ',' + str(picture_time) + ',' + str(sensor.get_exposure_us()) +
-                  ',' + str(sensor.get_gain_db()) + ',' + str(clock.fps()) + ',' + "reference" + '\n')
+
+            img_ref_fb.save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",
+                            quality=jpeg_quality)
+
+            imagelog.append(picture_count, picture_time, 
+                            sensor.get_exposure_us(), sensor.get_gain_db(), 
+                            clock.fps(), "reference")
+            
             if indicators: LED_CYAN_OFF()
         #reset blending time counter
         start_time_blending_ms = pyb.millis()
@@ -289,6 +295,7 @@ while(True):
                         print(len(blobs_filt),"blob(s) within range!")
                         triggered = True
                         picture_count += 1
+
                     for blob in blobs_filt:
                         detection_count += 1
                         color_statistics_temp = img.get_statistics(roi = blob.rect(),thresholds = color_thresholds)
@@ -296,16 +303,20 @@ while(True):
                         if (indicators):
                             img.draw_edges(blob.corners(), color=(0,0,255), thickness=5)
                             img.draw_rectangle(blob.rect(), color=(255,0,0), thickness=5)
+                        
                         #log each detected blob
-                        with open(str(current_folder)+'/detections.csv', 'a') as detectionlog:
-                            detectionlog.write(str(detection_count) + ',' + str(picture_count) + ',' + str(blob.pixels()) + ',' + str(blob.elongation()) +
-                                ',' + str(blob.corners()[0][0]) + ',' + str(blob.corners()[0][1]) +
-                                ',' + str(blob.corners()[1][0]) + ',' + str(blob.corners()[1][1]) +
-                                ',' + str(blob.corners()[2][0]) + ',' + str(blob.corners()[2][1]) +
-                                ',' + str(blob.corners()[3][0]) + ',' + str(blob.corners()[3][1]) +
-                                ',' + str(color_statistics_temp.l_mode()) + ',' + str(color_statistics_temp.l_min()) + ',' + str(color_statistics_temp.l_max()) +
-                                ',' + str(color_statistics_temp.a_mode()) + ',' + str(color_statistics_temp.a_min()) + ',' + str(color_statistics_temp.a_max()) +
-                                ',' + str(color_statistics_temp.b_mode()) + ',' + str(color_statistics_temp.b_min()) + ',' + str(color_statistics_temp.b_max()))
+                        detectionlog.append(detection_count, picture_count, 
+                                            blob.pixels(), blob.elongation(),
+                                            blob.corners()[0][0], blob.corners()[0][1], 
+                                            blob.corners()[1][0], blob.corners()[1][1],
+                                            blob.corners()[2][0], blob.corners()[2][1], 
+                                            blob.corners()[3][0], blob.corners()[3][1],
+                                            color_statistics_temp.l_mode(), color_statistics_temp.l_min(), color_statistics_temp.l_max(),
+                                            color_statistics_temp.a_mode(), color_statistics_temp.a_min(), color_statistics_temp.a_max(),
+                                            color_statistics_temp.b_mode(), color_statistics_temp.b_min(), color_statistics_temp.b_max(),
+                                            end_line=(classify_mode != "blobs"))
+                                            #we finish the CSV line here if not classifying
+
                         if (classify_mode == "blobs" or export_blobs!="none"):
                             #set blob bounding box according to user parameters
                             if (export_blobs=="rectangle"):
@@ -351,21 +362,20 @@ while(True):
                                 # we do not need a loop since we do not analyse blob subsets
                                 obj = tf.classify(net,img_blob_resized)[0]
                                 predictions_list = list(zip(labels, obj.output()))
-                                print("Predictions for classified blob:",predictions_list)
-                                with open(str(current_folder)+'/detections.csv', 'a') as detectionlog:
-                                    detectionlog.write(',' + str(";".join(map(str,labels))) + ',' + str(";".join(map(str,obj.output()))) + ',' + str(blob.rect()[0]) + ',' + str(blob.rect()[1]) + ',' + str(blob.rect()[2]) + ',' + str(blob.rect()[3]) + '\n')
+                                print("Predictions for classified blob:", predictions_list)
+
+                                detectionlog.append(";".join(map(str,labels)), 
+                                                    ";".join(map(str,obj.output())), 
+                                                    blob.rect()[0], blob.rect()[1], 
+                                                    blob.rect()[2], blob.rect()[3], 
+                                                    prepend_comma=True)
+
                                 if indicators: LED_YELLOW_OFF()
-                            #we finish the CSV line here if not classifying
-                            else:
-                                with open(str(current_folder)+'/detections.csv', 'a') as detectionlog:
-                                    detectionlog.write('\n')
-                        #if we only log blobs, we finish the CSV line here
-                        else:
-                            with open(str(current_folder)+'/detections.csv', 'a') as detectionlog:
-                                detectionlog.write('\n')
+
                         #go to next loop if only first blob is needed
                         if (blob_action == "stop"):
                             break
+
                 except MemoryError:
                     #when there is a memory error, we assume that it is triggered because of many blobs
                     triggered = True
@@ -379,13 +389,15 @@ while(True):
             if(triggered):
                 #save image log
                 if (MODE != 0):
-                    with open(str(current_folder)+'/images.csv', 'a') as imagelog:
-                        imagelog.write(str(picture_count) + ',' + str(picture_time) + ',' + str(sensor.get_exposure_us()) +
-                          ',' + str(sensor.get_gain_db()) + ',' + str(clock.fps()) + ',' + "")
-                        if (use_roi):
-                            imagelog.write(',' + str(roi_temp[0]) + ',' + str(roi_temp[1]) + ',' + str(roi_temp[2]) + ',' + str(roi_temp[3]) + '\n')
-                        else:
-                            imagelog.write('\n')
+                    if (not use_roi):
+                        imagelog.append(picture_count, picture_time, 
+                                        sensor.get_exposure_us(), sensor.get_gain_db(), 
+                                        clock.fps())
+                    else:
+                        imagelog.append(picture_count, picture_time, 
+                                        sensor.get_exposure_us(), sensor.get_gain_db(), 
+                                        clock.fps(), roi_temp[0], roi_temp[1], 
+                                        roi_temp[2], roi_temp[3])
                 # init detection confidence variable
                 detection_confidence = 0
                 #classify image
@@ -419,10 +431,17 @@ while(True):
                                 detection_count +=1
                                 print("Detected target! Logging detection...")
                                 #logging detection
-                                with open(str(current_folder)+'/detections.csv', 'a') as detectionlog:
-                                    detectionlog.write(str(detection_count) + ',' + str(picture_count) + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' +
-                                    "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' +
-                                    str(";".join(map(str,labels))) + ',' + str(";".join(map(str,obj.output()))) + ',' + str(roi_temp[0]) + ',' + str(roi_temp[1]) + ',' + str(roi_temp[2]) + ',' + str(roi_temp[3]) + '\n')
+                                detectionlog.append(detection_count, picture_count, 
+                                                    "NA", "NA", "NA", "NA", 
+                                                    "NA", "NA", "NA", "NA", 
+                                                    "NA", "NA", "NA", "NA", 
+                                                    "NA", "NA", "NA", "NA", 
+                                                    "NA", "NA", "NA",
+                                                    ";".join(map(str,labels)), 
+                                                    ";".join(map(str,obj.output())), 
+                                                    roi_temp[0], roi_temp[1], 
+                                                    roi_temp[2], roi_temp[3])
+
                     if indicators: LED_YELLOW_OFF()
                 #object detection. not compatible with ROI mode
                 if(classify_mode=="objects" and not use_roi):
@@ -443,13 +462,18 @@ while(True):
                             if(detection_confidence < d[4]): detection_confidence = d[4]
                             detection_count +=1
                             [x, y, w, h] = d.rect()
+                            
                             #optional: display bounding box
                             if (indicators):
                                 img.draw_rectangle(d.rect(), color=colors[i+1], thickness=2)
-                            with open(str(current_folder)+'/detections.csv', 'a') as detectionlog:
-                                detectionlog.write(str(detection_count) + ',' + str(picture_count) + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' +
-                                "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' + "NA" + ',' +
-                                str(labels[i]) + ',' + str(d[4]) + ',' + str(d[0]) + ',' + str(d[1]) + ',' + str(d[2]) + ',' + str(d[3]) + '\n')
+                            
+                            detectionlog.append(detection_count, picture_count, 
+                                                "NA", "NA", "NA", "NA", 
+                                                "NA", "NA", "NA", "NA",
+                                                "NA", "NA", "NA", "NA", 
+                                                "NA", "NA", "NA", "NA", 
+                                                "NA", "NA", "NA",
+                                                labels[i], d[4], d[0], d[1], d[2], d[3])
                     if indicators: LED_YELLOW_OFF()
                 elif(classify_mode=="objects" and use_roi): print("Object detection skipped, as it is not compatible with using ROIs!")
 

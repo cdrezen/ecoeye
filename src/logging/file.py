@@ -122,4 +122,4 @@ def init_files(rtc):
     # name1 = "-".join(map(str,list(date[i] for i in [0,1,2])))+"_"+"-".join(map(str,list(date[i] for i in [4,5,6])))
     # assert new_folder_name == name1
 
-    return new_folder_name
+    return new_folder_name, imagelog, detectionlog
