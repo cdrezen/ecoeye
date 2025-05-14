@@ -2,6 +2,9 @@
 import pyb
 from pyb import Pin, Timer
 import sensor
+from config.settings import Settings
+
+cfg = Settings()
 
 # ⚊⚊⚊⚊⚊ LED ON ⚊⚊⚊⚊⚊
 def LED_RED_ON():
@@ -216,11 +219,9 @@ def LED_CYCLE(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     return
 
-from config.settings import LED_mode, LED_night_mode, LED_module_brightness_pwm, LED_module_warmup, LED_module_cooldown
-
 class Illumination:
 
-    def __init__(self, mode=LED_mode, led_night_mode=LED_night_mode, brightness=LED_module_brightness_pwm, warmup_ms=LED_module_warmup, cooldown_ms=LED_module_cooldown):
+    def __init__(self, mode=cfg.LED_MODE, led_night_mode=cfg.LED_NIGHT_MODE, brightness=cfg.LED_MODULE_BRIGHTNESS_PWM, warmup_ms=cfg.LED_MODULE_WARMUP_MS, cooldown_ms=cfg.LED_MODULE_COOLDOWN_MS):
         self.light = Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6"))
         self.enabled = False
         self.mode = mode

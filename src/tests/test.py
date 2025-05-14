@@ -1,25 +1,21 @@
 ### test settings moved to config/settings.py and use_shortcut_mode()
-from config.settings import *
-MODE = 0
-apply_mode(MODE)
-from config.settings import *
-print(frame_differencing_enabled, classify_mode, operation_time, exposure_mode, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi)
+print("i")
 
-assert (frame_differencing_enabled == False and classify_mode == "none" and operation_time == "24h" and exposure_mode == "auto" 
-        and delay_loop_s == 0 and use_exposure_bracketing == False and RTC_select == 'onboard' and save_roi == "none")
-
-MODE = 2
-apply_mode(MODE)
 from config.settings import *
-print(frame_differencing_enabled, classify_mode, operation_time, exposure_mode, delay_loop_s, use_exposure_bracketing, RTC_select, save_roi)
-assert save_roi == "all"
+cfg = Settings()
+
+### singleton test
+cfg2 = Settings()
+assert id(cfg) == id(cfg2)
+assert cfg is cfg2
 ###
+
 
 ### test voltage divider
 from hardware.voltage_divider import vdiv_build
 vbat = vdiv_build()
 print(vbat.read_voltage())
-if voltage_divider == False:
+if cfg.VOLTAGE_DIV_AVAILABLE == False:
     assert vbat.read_voltage() == "NA" 
 else:
    assert vbat.read_voltage() > 0
@@ -33,8 +29,8 @@ import time
 
 ### test illumination
 sensor.reset()
-sensor.set_pixformat(sensor_pixformat)
-sensor.set_framesize(sensor_framesize)
+sensor.set_pixformat(cfg.SENSOR_PIXFORMAT)
+sensor.set_framesize(cfg.SENSOR_FRAMESIZE)
 illumination = Illumination()
 illumination.on()
 time.sleep(2)
@@ -51,7 +47,7 @@ illumination.off()
 ### test timeutil
 from timeutil import *
 
-solartime = suntime(operation_time,sunrise_hour,sunrise_minute,sunset_hour,sunset_minute)
+solartime = suntime(cfg.operation_coverage, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
 rtc = rtc()
 # print date and time from set or updated RTC
 start = rtc.datetime()[4:7]
@@ -65,15 +61,15 @@ assert start != end
 ### test file
 from logging.file import *
 
-new_folder_name = init_files(rtc)
+new_folder_name, imagelog, detectionlog = init_files(rtc)
 
-with open(str(new_folder_name)+'/detections1.csv', 'a') as detectionlog1:
+with open(str(new_folder_name)+'/detections1.csv', 'w') as detectionlog1:
         detectionlog1.write("detection_id" + ',' + "picture_id" + ',' + "blob_pixels" + ',' + "blob_elongation" + ','
     + "blob_corner1_x" + ',' + "blob_corner1_y" + ',' + "blob_corner2_x" + ',' + "blob_corner2_y" + ',' + "blob_corner3_x" + ',' + "blob_corner3_y" + ',' + "blob_corner4_x" + ',' + "blob_corner4_y"
     + ',' + "blob_l_mode" + ',' + "blob_l_min" + ',' + "blob_l_max" + ',' + "blob_a_mode" + ',' + "blob_a_min" + ',' + "blob_a_max" + ',' + "blob_b_mode" + ',' + "blob_b_min" + ',' + "blob_b_max" + ','
     + "image_labels" + ',' "image_confidences" + ',' + "image_x" + ',' + "image_y" + ',' + "image_width" + ',' + "image_height" + '\n')
 
-with open(str(new_folder_name)+'/images1.csv', 'a') as imagelog1:
+with open(str(new_folder_name)+'/images1.csv', 'w') as imagelog1:
         imagelog1.write("picture_id" + ',' + "date_time" + ',' + "exposure_us" + ',' + "gain_dB" + ',' + "frames_per_second" + ','
         + "image_type" + ',' + "roi_x" + ',' + "roi_y" + ',' + "roi_width" + ',' + "roi_height" + '\n')
 

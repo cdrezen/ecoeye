@@ -3,17 +3,18 @@
 
 #import libraries
 import image, os, tf, pyb, math
-from config.settings import classify_mode, labels_path, net_path, non_target_labels
+from config.settings import Settings
+cfg = Settings()
 
 def load_model():
     labels = None
     non_target_indices = None
     try:
-        labels = [line.rstrip('\n') for line in open(labels_path)]
+        labels = [line.rstrip('\n') for line in open(cfg.LABELS_PATH)]
         print("Loaded model and labels")
         #get target label index
-        target_indices = [i for i in range(len(labels)) if labels[i] not in non_target_labels]
-        non_target_indices = [i for i in range(len(labels)) if labels[i] in non_target_labels]
+        target_indices = [i for i in range(len(labels)) if labels[i] not in cfg.NON_TARGET_LABELS]
+        non_target_indices = [i for i in range(len(labels)) if labels[i] in cfg.NON_TARGET_LABELS]
         print("Selected target indices:",list(labels[i] for i in target_indices))
     except Exception as e:
         print(e)

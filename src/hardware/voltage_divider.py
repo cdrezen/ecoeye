@@ -3,7 +3,10 @@ import pyb
 from pyb import Pin, Timer, ExtInt
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF
 
-from config.settings import PMS, LED_module, voltage_divider, voltage_readings, voltage_readings_delay, vbat_minimum
+from config.settings import Settings
+
+cfg = Settings()
+
 # resistors values on voltage divider circuits
 R_1_PMS_LED = 30
 R_2_PMS_LED = 8.82352941176
@@ -63,19 +66,19 @@ class vdiv:
 
     def is_battery_low():
         vbat = vdiv.read_voltage()
-        return (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected())
+        return (vbat!="NA" and vbat < cfg.VBAT_MINIMUM_VOLT and not pyb.USB_VCP().isconnected())
 
 def is_battery_low(vbat):
-    return (vbat!="NA" and vbat<vbat_minimum and not pyb.USB_VCP().isconnected())
+    return (vbat!="NA" and vbat < cfg.VBAT_MINIMUM_VOLT and not pyb.USB_VCP().isconnected())
 
 def vdiv_build():
     # set the resistor values in ADC voltage divider
-    if PMS:
-        R_1 = R_1_PMS_LED if LED_module else R_1_PMS_noLED
-        R_2 = R_2_PMS_LED if LED_module else R_2_PMS_noLED
+    if cfg.POWER_MANAGEMENT_ENABLED:
+        R_1 = R_1_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_PMS_noLED
+        R_2 = R_2_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_2_PMS_noLED
     else:
-        R_1 = R_1_noPMS_LED if LED_module else R_1_noPMS_noLED
-        R_2 = R_2_noPMS_LED if LED_module else R_2_noPMS_noLED
+        R_1 = R_1_noPMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_noPMS_noLED
+        R_2 = R_2_noPMS_LED if cfg.LED_MODULE_AVAILABLE else R_2_noPMS_noLED
     # return voltage divider class instance
-    return vdiv(voltage_divider, voltage_readings, voltage_readings_delay, R_1,R_2)
+    return vdiv(cfg.VOLTAGE_DIV_AVAILABLE, cfg.VOLTAGE_AVG_SAMPLE_COUNT, cfg.VOLTAGE_READINGS_DELAY_MS, R_1,R_2)
 

@@ -1,7 +1,9 @@
-from config.settings import frame_differencing_enabled, use_roi, rois_rects, export_blobs
+from config.settings import Settings
 import os, time
 import pyb
 from logging.csv import Csv
+
+cfg = Settings()
 
 def read_filevars():
     # retrieve current working folder name in VAR
@@ -105,13 +107,13 @@ def init_files(rtc):
 
     filenames = os.listdir(str(new_folder_name)+"/jpegs")
 
-    if (frame_differencing_enabled and not "reference" in filenames): 
+    if (cfg.frame_differencing_enabled and not "reference" in filenames): 
         os.mkdir(str(new_folder_name)+"/jpegs/reference")
     
-    if (export_blobs!="none" and not "blobs" in filenames): 
+    if (cfg.BLOBS_EXPORT_METHOD!="none" and not "blobs" in filenames): 
         os.mkdir(str(new_folder_name)+"/jpegs/blobs")
 
-    for roi_temp in rois_rects:
+    for roi_temp in cfg.roi_rects:
         subfolder_name = '_'.join(map(str,roi_temp))
         if (not subfolder_name in filenames): 
             os.mkdir(str(new_folder_name)+"/jpegs/"+subfolder_name)
