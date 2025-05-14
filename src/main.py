@@ -1,7 +1,8 @@
 # Blob detection and image classification with whole image, image subsets, ROI, or blob-detected bounding rectangles
 
 # import user defined parameters
-from config.settings import Settings, Mode
+import config.settings as cfg
+from config.settings import Mode
 #import libraries
 import sensor, image, time, os, tf, pyb, machine, sys, uos, gc, math
 from pyb import Pin, Timer
@@ -13,8 +14,6 @@ from timeutil import suntime, rtc
 from classify import load_model
 from logging.file import read_filevars, write_filevars, write_status, init_files
 
-
-cfg = Settings()
 
 AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
 # create voltage divider class instance

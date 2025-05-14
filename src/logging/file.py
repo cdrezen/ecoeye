@@ -1,9 +1,7 @@
-from config.settings import Settings
+import config.settings as cfg
 import os, time
 import pyb
 from logging.csv import Csv
-
-cfg = Settings()
 
 def read_filevars():
     # retrieve current working folder name in VAR

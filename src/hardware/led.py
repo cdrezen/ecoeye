@@ -2,9 +2,7 @@
 import pyb
 from pyb import Pin, Timer
 import sensor
-from config.settings import Settings
-
-cfg = Settings()
+import config.settings as cfg
 
 # ⚊⚊⚊⚊⚊ LED ON ⚊⚊⚊⚊⚊
 def LED_RED_ON():

@@ -1,15 +1,4 @@
-### test settings moved to config/settings.py and use_shortcut_mode()
-print("i")
-
-from config.settings import *
-cfg = Settings()
-
-### singleton test
-cfg2 = Settings()
-assert id(cfg) == id(cfg2)
-assert cfg is cfg2
-###
-
+import config.settings as cfg
 
 ### test voltage divider
 from hardware.voltage_divider import vdiv_build

@@ -3,8 +3,7 @@
 
 #import libraries
 import image, os, tf, pyb, math
-from config.settings import Settings
-cfg = Settings()
+import config.settings as cfg
 
 def load_model():
     labels = None

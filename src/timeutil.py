@@ -1,6 +1,5 @@
 import machine, pyb, time
-from config.settings import Settings
-cfg = Settings()
+import config.settings as cfg
 
 ### Sunrise and sunset class ###
 class suntime:

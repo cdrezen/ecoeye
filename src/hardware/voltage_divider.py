@@ -3,9 +3,7 @@ import pyb
 from pyb import Pin, Timer, ExtInt
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF
 
-from config.settings import Settings
-
-cfg = Settings()
+import config.settings as cfg
 
 # resistors values on voltage divider circuits
 R_1_PMS_LED = 30
