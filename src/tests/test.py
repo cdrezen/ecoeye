@@ -36,7 +36,7 @@ illumination.off()
 ### test timeutil
 from timeutil import *
 
-solartime = suntime(cfg.operation_coverage, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
+solartime = suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
 rtc = rtc()
 # print date and time from set or updated RTC
 start = rtc.datetime()[4:7]

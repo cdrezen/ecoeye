@@ -10,6 +10,10 @@ class Mode:
     DEPLOY = 1
     LIVE_CAPTURE = 2
 
+    def to_str(val):
+        return ("LIVE_VIEW" if val == Mode.LIVE_VIEW else
+                "DEPLOY" if val == Mode.DEPLOY else
+                "LIVE_CAPTURE")
 
 #operation mode:
 #0: live view. Disables saving pictures, frame differencing, classifying, sleeping, bracketing, delay between pictures. Uses auto-exposure.
@@ -40,7 +44,7 @@ SLEEP_THRESHOLD_S = 10
 #all: save all pictures (fd_enable must be False)
 #trigger: save image-change-triggered pictures
 #detect: save images with model-detected patterns
-save_roi_mode = "none" if MODE == Mode.LIVE_VIEW else "all"
+SAVE_ROI_MODE = "none" if MODE == Mode.LIVE_VIEW else "all"
 # _____ windowing mode only parameters _____
 #rectangle tuples (x,y coordinates and width and height) for digital zoom. x=0,y=0 is conventionally the upper left corner.
 #windowing_x=324 corresponds to the point from which a central square crop can be taken while using all the vertical resolution of the sensor
@@ -49,7 +53,7 @@ WIN_RECT = Rect(324,0,1944,1944)
 #wether to use user-defined rois (regions of interest)
 USE_ROI = False
 #assign roi to entire image if we do not use them
-roi_rects = [(0,0,sensor.width(),sensor.height())] if not USE_ROI else [(197,742,782,753),(1309,1320,560,460)]
+ROI_RECTS = [(0,0,sensor.width(),sensor.height())] if not USE_ROI else [(197,742,782,753),(1309,1320,560,460)]
 #wether to control number of frame buffers
 USE_SENSOR_FRAMEBUFFERS = False
 NB_SENSOR_FRAMEBUFFERS = 1
@@ -64,9 +68,9 @@ JPEG_QUALITY = 93
 #bias: adjusting exposure and gain automatically at regular intervals (time period can be defined below) but with a user-defined bias for exposure time and gain
 #exposure: fixing exposure time, while adjusting gain at regular intervals (time period can be defined below)
 #manual: fixing exposure time and gain
-exposure_mode = "auto" if MODE != Mode.DEPLOY else "auto"
+EXPOSURE_MODE = "auto" if MODE != Mode.DEPLOY else "auto"
 #wether to use exposure bracketing
-use_exposure_bracketing = False if MODE != Mode.DEPLOY else False
+USE_EXPOSURE_BRACKETING = False if MODE != Mode.DEPLOY else False
 # _____ bias mode only parameters _____
 #settings for bias mode: This is the user-defined multiplicative bias for the exposure time. Multiplies the automatic exposure time with this value. Values above 1 brighten the image, values below 1 darken it.
 #for instance, if your subject has a bright background (e.g., sky) during the day, you may use values above 1 for the day bias
@@ -110,7 +114,7 @@ LED_MODULE_COOLDOWN_MS = 0
 ### FRAME DIFFERENCING ###
 #wether to use frame differencing. This subtracts every current image from a reference image, resulting in dark images when there is no change.
 #a change will introduce a "blob" in the otherwise dark image, which can be detected, logged, and characterised
-frame_differencing_enabled = False if MODE != Mode.DEPLOY else False
+FRAME_DIFF_ENABLED = False if MODE != Mode.DEPLOY else False
 # _____ FD enabled only parameters _____
 #action for blobs. options:
 #stop: stop detecting blobs after the first one
@@ -138,7 +142,7 @@ BACKGROUND_BLEND_LEVEL = 128
 #objects: detect (multiple) targets within image (i.e. object detection)
 #blobs: classify the blobs (extracted from their bounding rectangles)
 #none: do not use neural networks
-classify_mode = "none" if MODE != Mode.DEPLOY else "none"
+CLASSIFY_MODE = "none" if MODE != Mode.DEPLOY else "none"
 # _____ classify enabled only parameters _____
 #absolute file paths to model and labels files stored on SD card. needs to start with backslash if file is in root
 NET_PATH = "/trained.tflite"
@@ -179,12 +183,12 @@ VBAT_MINIMUM_VOLT = 0
 #night: during the night (between sunrise and sunset)
 #day: during the day (between sunset and sunrise)
 #24h: all the time
-operation_coverage = "24h" if MODE != Mode.DEPLOY else "24h"
+TIME_COVERAGE = "24h" if MODE != Mode.DEPLOY else "24h"
 # select which RTC to use
 # onboard : internal STM32 RTC (10 min offset every 6 hours)
 # ds3231 : IR shield v3 shield (green) with ML621 coin cell battery
 # pcf8563 : WUV shield (red) with CR1220 coin cell battery
-rtc_mode = 'onboard' if MODE != Mode.DEPLOY else 'onboard'
+RTC_MODE = 'onboard' if MODE != Mode.DEPLOY else 'onboard'
 #For internal RTC, set the current date and time manually (year, month, day, weekday, hours, minutes, seconds, subseconds).
 START_DATETIME = (2022, 9, 15, 0, 18, 33, 35, 0)
 #defining operation times for camera, depending on its operation time mode

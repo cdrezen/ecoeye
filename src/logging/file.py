@@ -105,13 +105,13 @@ def init_files(rtc):
 
     filenames = os.listdir(str(new_folder_name)+"/jpegs")
 
-    if (cfg.frame_differencing_enabled and not "reference" in filenames): 
+    if (cfg.FRAME_DIFF_ENABLED and not "reference" in filenames): 
         os.mkdir(str(new_folder_name)+"/jpegs/reference")
     
     if (cfg.BLOBS_EXPORT_METHOD!="none" and not "blobs" in filenames): 
         os.mkdir(str(new_folder_name)+"/jpegs/blobs")
 
-    for roi_temp in cfg.roi_rects:
+    for roi_temp in cfg.ROI_RECTS:
         subfolder_name = '_'.join(map(str,roi_temp))
         if (not subfolder_name in filenames): 
             os.mkdir(str(new_folder_name)+"/jpegs/"+subfolder_name)

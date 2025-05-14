@@ -19,9 +19,9 @@ AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
 # create voltage divider class instance
 vdiv_bat = vdiv_build()
 # initialise time objects & print date and time from set or updated RTC
-solartime = suntime(cfg.operation_coverage, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
+solartime = suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
 rtc = rtc()
-exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.use_exposure_bracketing else [1]
+exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [1]
 last_exposure = 0
 illumination = Illumination()
 current_folder, picture_count, detection_count = None, 0, 0
@@ -56,7 +56,7 @@ def take_picture(do_expose, exposure_mult = None):
     global last_exposure
     last_exposure = sensor.get_exposure_us()
 
-    if (exposure_mult != None):#cfg.use_exposure_bracketing
+    if (exposure_mult != None):#cfg.USE_EXPOSURE_BRACKETING
         #fix the gain so image is stable
         sensor.set_auto_gain(False, gain_db=sensor.get_gain_db())
         print("Exposure bracketing bias:",exposure_mult)
@@ -69,7 +69,7 @@ def take_picture(do_expose, exposure_mult = None):
         illumination.on(message="to take the picture")
 
     if (do_expose):
-        expose(cfg.exposure_mode, cfg.EXPOSURE_BIAS_DAY, cfg.EXPOSURE_BIAS_NIGHT,
+        expose(cfg.EXPOSURE_MODE, cfg.EXPOSURE_BIAS_DAY, cfg.EXPOSURE_BIAS_NIGHT,
                 cfg.GAIN_BIAS, cfg.EXPOSURE_MS, cfg.GAIN_DB, is_night)
     
     img = sensor.snapshot()
@@ -91,6 +91,8 @@ def init():
     # perform quick start from sleep check
     start_check()
 
+    print(f"Initializing on {Mode.to_str(cfg.MODE)} mode...")
+
     # On wakeup from deep sleep, fetch variables from files
     if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
         current_folder, picture_count, detection_count = read_filevars()
@@ -105,13 +107,13 @@ def init():
         check_battery_sleep(print_status="Script start - Initialising")
 
     #import mobilenet model and labels
-    if(cfg.classify_mode != "none"):
+    if(cfg.CLASSIFY_MODE != "none"):
         labels, non_target_indices = load_model()
 
     # verify that wifi shield is connected when wifi is enabled
     wifi_enabled = cfg.WIFI_ENABLED and wifishield_isconnnected()
 
-    if (cfg.frame_differencing_enabled and cfg.exposure_mode=="auto"): 
+    if (cfg.FRAME_DIFF_ENABLED and cfg.EXPOSURE_MODE=="auto"): 
         print("ATTENTION: using automatic exposure with frame differencing can result in spurious triggers!")
 
     ### SENSOR INIT ###
@@ -143,7 +145,7 @@ def init():
         sys.exit("Windowing dim exceeds image dim!")
 
     #Frame buffer memory management
-    if(cfg.frame_differencing_enabled):
+    if(cfg.FRAME_DIFF_ENABLED):
         #de-allocate frame buffer just in case
         sensor.dealloc_extra_fb()
         sensor.dealloc_extra_fb()
@@ -190,9 +192,9 @@ while(True):
             deferred_analysis(net, cfg.MIN_IMAGE_SCALE, predictions_list, current_folder)
 
         #compute time until wake-up
-        if (cfg.operation_coverage == "day"):
+        if (cfg.TIME_COVERAGE == "day"):
             sleep_time = solartime.time_until_sunrise()
-        if (cfg.operation_coverage == "night"):
+        if (cfg.TIME_COVERAGE == "night"):
             sleep_time = solartime.time_until_sunset()
         write_filevars(current_folder, picture_count, detection_count)
         write_status(vbat,"Outside operation time - Sleeping",current_folder)
@@ -210,7 +212,7 @@ while(True):
     if (pyb.elapsed_millis(start_time_status_ms) > cfg.LOG_STATUS_PERIOD_MS):
         start_time_status_ms = pyb.millis()
         #  update internal RTC from external RTC
-        if(cfg.rtc_mode != 'onboard'): ext_rtc.get_time(True)
+        if(cfg.RTC_MODE != 'onboard'): ext_rtc.get_time(True)
         print("Updated time (Y,M,D):",rtc.datetime()[0:3],"and time (H,M,S):",rtc.datetime()[4:7])
         # turn on OFF LED module during voltage reading
         illumination.off(message="during voltage reading")
@@ -230,11 +232,11 @@ while(True):
 
     #auto-adjust exposure with user biases or gain, blend frame if frame differencing and no detection
     #wait up to twice expose period
-    if (cfg.exposure_mode!="auto" and (pyb.elapsed_millis(start_time_blending_ms) > cfg.EXPOSE_PERIOD_S * 1000) and (not triggered or not cfg.frame_differencing_enabled)
-    or (cfg.exposure_mode!="auto" and (pyb.elapsed_millis(start_time_blending_ms) > 2 * cfg.EXPOSE_PERIOD_S * 1000))):
+    if (cfg.EXPOSURE_MODE!="auto" and (pyb.elapsed_millis(start_time_blending_ms) > cfg.EXPOSE_PERIOD_S * 1000) and (not triggered or not cfg.FRAME_DIFF_ENABLED)
+    or (cfg.EXPOSURE_MODE!="auto" and (pyb.elapsed_millis(start_time_blending_ms) > 2 * cfg.EXPOSE_PERIOD_S * 1000))):
         
         #blend new frame only if frame differencing
-        if (cfg.frame_differencing_enabled):
+        if (cfg.FRAME_DIFF_ENABLED):
             print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(start_time_blending_ms)/1000)),"seconds")
             #take new picture
             picture_count += 1
@@ -270,13 +272,13 @@ while(True):
 
         #start cycling over ROIs
         # cfg.ROIS_RECT) length==1 if cfg.USE_ROI==False
-        for roi_temp in cfg.roi_rects:
+        for roi_temp in cfg.ROI_RECTS:
             if (cfg.USE_ROI):
                 print("Extracting ROI:",roi_temp)
                 img_roi=img.copy(roi=roi_temp,copy_to_fb=True)
             else: img_roi=img
 
-            if(cfg.frame_differencing_enabled):
+            if(cfg.FRAME_DIFF_ENABLED):
                 #save original image
                 img_ori_fb.replace(img_roi)
 
@@ -313,10 +315,10 @@ while(True):
                                             color_statistics_temp.l_mode(), color_statistics_temp.l_min(), color_statistics_temp.l_max(),
                                             color_statistics_temp.a_mode(), color_statistics_temp.a_min(), color_statistics_temp.a_max(),
                                             color_statistics_temp.b_mode(), color_statistics_temp.b_min(), color_statistics_temp.b_max(),
-                                            end_line=(cfg.classify_mode != "blobs"))
+                                            end_line=(cfg.CLASSIFY_MODE != "blobs"))
                                             #we finish the CSV line here if not classifying
 
-                        if (cfg.classify_mode == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
+                        if (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
                             #set blob bounding box according to user parameters
                             if (cfg.BLOBS_EXPORT_METHOD=="rectangle"):
                                 blob_rect=blob.rect()
@@ -353,7 +355,7 @@ while(True):
                                 print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
                                 img_blob.save(str(current_folder)+"/jpegs/blobs/" + str(picture_count) + "_d" + str(detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
                                 if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
-                            if (cfg.classify_mode == "blobs"):
+                            if (cfg.CLASSIFY_MODE == "blobs"):
                                 #optional: turn on LED while classifying
                                 if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
                                 #rescale blob rectangle
@@ -400,12 +402,12 @@ while(True):
                 # init detection confidence variable
                 detection_confidence = 0
                 #classify image
-                if(cfg.classify_mode=="image"):
+                if(cfg.CLASSIFY_MODE=="image"):
                     if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
                     print("Running image classification on ROI...")
                     detected = False
                     #revert image_roi replacement to get original image for classification
-                    if cfg.frame_differencing_enabled: img_roi.replace(img_ori_fb)
+                    if cfg.FRAME_DIFF_ENABLED: img_roi.replace(img_ori_fb)
                     #only analyse when classification is feasible within reasonable time frame
                     if (cfg.MIN_IMAGE_SCALE >= cfg.THRESHOLD_IMAGE_SCALE_DEFER):
                         print("Classifying ROI or image...")
@@ -443,12 +445,12 @@ while(True):
 
                     if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
                 #object detection. not compatible with ROI mode
-                if(cfg.classify_mode=="objects" and not cfg.USE_ROI):
+                if(cfg.CLASSIFY_MODE=="objects" and not cfg.USE_ROI):
                     if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
                     print("Running object detection on ROI...")
                     detected = False
                     #revert image_roi replacement to get original image for classification
-                    if cfg.frame_differencing_enabled: img_roi.replace(img_ori_fb)
+                    if cfg.FRAME_DIFF_ENABLED: img_roi.replace(img_ori_fb)
                     #loop through labels
                     for i, detection_list in enumerate(tf.detect(net,img_roi, thresholds=[(math.ceil(cfg.THRESHOLD_CONFIDENCE * 255), 255)])):
                         if (i == 0): continue # background class
@@ -474,14 +476,14 @@ while(True):
                                                 "NA", "NA", "NA",
                                                 labels[i], d[4], d[0], d[1], d[2], d[3])
                     if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
-                elif(cfg.classify_mode=="objects" and cfg.USE_ROI): print("Object detection skipped, as it is not compatible with using ROIs!")
+                elif(cfg.CLASSIFY_MODE=="objects" and cfg.USE_ROI): print("Object detection skipped, as it is not compatible with using ROIs!")
 
                 # saving picture
-                if(cfg.save_roi_mode == "all" or cfg.save_roi_mode == "trigger" or (cfg.save_roi_mode == "detect" and detected)):
+                if(cfg.SAVE_ROI_MODE == "all" or cfg.SAVE_ROI_MODE == "trigger" or (cfg.SAVE_ROI_MODE == "detect" and detected)):
                     print("Saving ROI or whole image...")
                     if cfg.INDICATORS_ENBLED: LED_GREEN_ON()
                     #revert image_roi replacement to get original image for classification
-                    if (cfg.frame_differencing_enabled): img_roi.replace(img_ori_fb)
+                    if (cfg.FRAME_DIFF_ENABLED): img_roi.replace(img_ori_fb)
                     # Save picture with detection ID
                     img_roi.save(str(current_folder)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
                     if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
@@ -495,19 +497,19 @@ while(True):
             print("Frames per second: %s" % str(round(clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
     
     #turn auto image adjustments back on if bracketing
-    if (cfg.use_exposure_bracketing):
-        if(cfg.exposure_mode=="auto"):
+    if (cfg.USE_EXPOSURE_BRACKETING):
+        if(cfg.EXPOSURE_MODE=="auto"):
             #auto gain and exposure
             sensor.set_auto_gain(True)
             sensor.set_auto_exposure(True)
             #wait for auto-adjustment
             sensor.skip_frames(time = 2000)
-        elif(cfg.exposure_mode=="exposure"):
+        elif(cfg.EXPOSURE_MODE=="exposure"):
             #auto gain
             sensor.set_auto_gain(True)
             #wait for auto-adjustment
             sensor.skip_frames(time = 2000)
-        elif(cfg.exposure_mode=="bias"):
+        elif(cfg.EXPOSURE_MODE=="bias"):
             exposure_bias = cfg.EXPOSURE_BIAS_NIGHT if is_night else cfg.EXPOSURE_BIAS_DAY
             # re-set exposure
             sensor.set_auto_exposure(False, \

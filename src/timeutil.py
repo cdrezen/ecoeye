@@ -89,16 +89,16 @@ class rtc:
         # initialise RTC object
         self.pyb_rtc = pyb.RTC()
         # set rtc from user definedc date and time only on power on
-        if (machine.reset_cause() != machine.DEEPSLEEP_RESET and cfg.rtc_mode == 'onboard'):
+        if (machine.reset_cause() != machine.DEEPSLEEP_RESET and cfg.RTC_MODE == 'onboard'):
             self.pyb_rtc.datetime(cfg.START_DATETIME)
-        if(cfg.rtc_mode == 'ds3231'):
+        if(cfg.RTC_MODE == 'ds3231'):
             # import necessary librairies
             from ds3231 import DS3231
             # initialize i2c pins on P7 (SCL) and P8 (SDA) and DS3231 as ext_rtc
             i2c = machine.SoftI2C(sda=pyb.Pin('P8'), scl=pyb.Pin('P7'))
             ext_rtc = DS3231(i2c)
             ext_rtc.get_time(True)
-        if(cfg.rtc_mode == 'pcf8563'):
+        if(cfg.RTC_MODE == 'pcf8563'):
             # import necessary librairies
             from pcf8563 import PCF8563
             # initialize i2c pins on P4 (SCL) and P5 (SDA) and PCF8563 as ext_rtc
