@@ -3,6 +3,16 @@ import os, time
 import pyb
 from logging.csv import Csv
 
+# TODO: write FileManager and Logger classes
+class FileManager:
+    """
+    Class to manage file operations for the system.
+    """
+    def __init__(self, root="/"):
+        self.root = root
+        
+    
+
 def read_filevars():
     # retrieve current working folder name in VAR
     with open('/VAR/currentfolder.txt', 'r') as folderfetch:
@@ -43,6 +53,7 @@ def write_filevars(current_folder, picture_count, detection_count):
 # pathstr - path of the folder, string type
 # --- Output variables ---
 # none
+statuslog = None
 def write_status(vbat,status="NA",folder='/'):
 
     print("Saving '",status,"' into status log.")
