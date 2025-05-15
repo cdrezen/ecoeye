@@ -4,7 +4,7 @@
 import config.settings as cfg
 from config.settings import Mode
 #import libraries
-import sensor, image, time, os, tf, pyb, machine, sys, uos, gc, math
+import sensor, image, time, os, tf, pyb, machine, sys, gc, math
 from pyb import Pin, Timer
 # import external functions
 from ecofunctions import *
@@ -24,7 +24,7 @@ rtc = rtc()
 exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [1]
 last_exposure = 0
 illumination = Illumination()
-current_folder, picture_count, detection_count = None, 0, 0
+current_folder, picture_count, detection_count = "/", 0, 0
 imagelog, detectionlog = None, None
 is_night = not solartime.is_daytime()
 # future image width and height
@@ -130,7 +130,7 @@ def init():
     sensor.set_framesize(cfg.SENSOR_FRAMESIZE)
 
     if (cfg.USE_SENSOR_WINDOWING):
-        sensor.set_windowing(windowing.x, windowing.y, windowing.w, windowing.h)
+        sensor.set_windowing((windowing.x, windowing.y, windowing.w, windowing.h))
 
     if (cfg.USE_SENSOR_FRAMEBUFFERS): 
         sensor.set_framebuffers(cfg.NB_SENSOR_FRAMEBUFFERS)

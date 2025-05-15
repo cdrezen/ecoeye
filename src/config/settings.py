@@ -6,11 +6,12 @@ class Mode:
     "enum" for operation modes.
     (py enums not inluded in micropython)
     """
-    LIVE_VIEW = 0
-    DEPLOY = 1
-    LIVE_CAPTURE = 2
-
-    def to_str(val):
+    LIVE_VIEW:int = 0
+    DEPLOY:int = 1
+    LIVE_CAPTURE:int = 2
+    
+    @staticmethod
+    def to_str(val:int):
         return ("LIVE_VIEW" if val == Mode.LIVE_VIEW else
                 "DEPLOY" if val == Mode.DEPLOY else
                 "LIVE_CAPTURE")
