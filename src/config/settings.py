@@ -24,7 +24,7 @@ MODE = Mode.DEPLOY
 #whether the power management system is used or not
 POWER_MANAGEMENT_ENABLED = False
 #whether the voltage divider circuit is plugged or not
-VOLTAGE_DIV_AVAILABLE = False
+VOLTAGE_DIV_AVAILABLE = True
 
 ### IMAGE ###
 #what resolution to use
@@ -68,7 +68,7 @@ JPEG_QUALITY = 93
 #bias: adjusting exposure and gain automatically at regular intervals (time period can be defined below) but with a user-defined bias for exposure time and gain
 #exposure: fixing exposure time, while adjusting gain at regular intervals (time period can be defined below)
 #manual: fixing exposure time and gain
-EXPOSURE_MODE = "auto" if MODE != Mode.DEPLOY else "auto"
+EXPOSURE_MODE = "auto" if MODE != Mode.DEPLOY else "bias"
 #wether to use exposure bracketing
 USE_EXPOSURE_BRACKETING = False if MODE != Mode.DEPLOY else False
 # _____ bias mode only parameters _____
@@ -102,7 +102,7 @@ LED_MODE = "onboard"
 #on: continuously ON during night time . Should be used for continuous illumination with frame differencing
 #blink: power-saving intermittent powering on. Should be used to save power, but only when using models to detect targets, since illumination will be unstable
 #off: always OFF
-LED_NIGHT_MODE = "off"
+LED_NIGHT_MODE = "blink"
 # ______ LED module only parameters ______
 #PWM (brightness) of the plug-in LED module
 LED_MODULE_BRIGHTNESS_PWM = 100
@@ -126,13 +126,13 @@ MIN_BLOB_PIXELS = 3000
 MAX_BLOB_PIXELS = 500000
 #color channel thresholds for detection. Pixels with color channel values outside of these ranges will be considered to be blobs.
 #requires at least one tuple for grayscale images (for instance: [(0,5)]), three tuples for RGB565 images (for instance: [(0,3),(-3,3),(-3,3)] - this corresponds to LAB channels)
-BLOB_COLOR_THRESHOLDS = [(0,5)]
+BLOB_COLOR_THRESHOLDS = [(0,3),(-3,3),(-3,3)]
 # _____ advanced settings _____
 #wether to export the detected blobs as jpegs (e.g., for gathering training images). options:
 #rectangle: exports bounding rectangle
 #square: exports bounding square with a side length of the longest side of the blob's bounding rectangle
 #none: does not export blobs
-BLOBS_EXPORT_METHOD = "none"
+BLOBS_EXPORT_METHOD = "rectangle"
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
 
@@ -190,7 +190,7 @@ TIME_COVERAGE = "24h" if MODE != Mode.DEPLOY else "24h"
 # pcf8563 : WUV shield (red) with CR1220 coin cell battery
 RTC_MODE = 'onboard' if MODE != Mode.DEPLOY else 'onboard'
 #For internal RTC, set the current date and time manually (year, month, day, weekday, hours, minutes, seconds, subseconds).
-START_DATETIME = (2022, 9, 15, 0, 18, 33, 35, 0)
+START_DATETIME = (2025, 5, 15, 5, 1, 12, 0, 0)
 #defining operation times for camera, depending on its operation time mode
 SUNRISE_HOUR = 5
 SUNRISE_MINUTE = 17
