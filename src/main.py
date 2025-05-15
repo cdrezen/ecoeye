@@ -10,21 +10,23 @@ from pyb import Pin, Timer
 from ecofunctions import *
 from hardware.voltage_divider import vdiv_build, is_battery_low
 from hardware.led import *
-from timeutil import suntime, rtc
+from timeutil import Suntime, Rtc
 from classify import load_model
 from logging.file import read_filevars, write_filevars, write_status, init_files
+from vision.frame_differencer import FrameDifferencer
 
 
 AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
 # create voltage divider class instance
 vdiv_bat = vdiv_build()
 # initialise time objects & print date and time from set or updated RTC
-solartime = suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
-rtc = rtc()
+solartime = Suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
+rtc = Rtc()
 exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [1]
 last_exposure = 0
 illumination = Illumination()
-current_folder, picture_count, detection_count = "/", 0, 0
+current_folder = "/"
+picture_count, detection_count = 0, 0
 imagelog, detectionlog = None, None
 is_night = not solartime.is_daytime()
 # future image width and height
@@ -39,7 +41,8 @@ triggered = False
 detected = False
 #start clock
 clock = None
-img_ref_fb, img_ori_fb = None, None
+# Frame differencing handler
+frame_differencer = None
 
 def check_battery_sleep(vbat=None, print_status=""):
     # check voltage and save status, if battery too low -> sleep until sunrise
@@ -146,25 +149,14 @@ def init():
 
     #Frame buffer memory management
     if(cfg.FRAME_DIFF_ENABLED):
-        #de-allocate frame buffer just in case
-        sensor.dealloc_extra_fb()
-        sensor.dealloc_extra_fb()
-        # Take from the main frame buffer's RAM to allocate a second frame buffer.
-        img_ref_fb = sensor.alloc_extra_fb(image_width, image_height, sensor_pixformat)
-        img_ori_fb = sensor.alloc_extra_fb(image_width, image_height, sensor_pixformat)
+        # Initialize the frame differencer
+        frame_differencer = FrameDifferencer(image_width, image_height, sensor_pixformat)
 
         print("Saving background image...")
         picture_count += 1
 
         img, picture_time = take_picture(do_expose=True)
-        img_ref_fb.replace(img)
-
-        img_ref_fb.save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",
-                        quality=cfg.JPEG_QUALITY)
-
-        imagelog.append(picture_count, picture_time, 
-                        sensor.get_exposure_us(), sensor.get_gain_db(), 
-                        "NA", "reference")
+        frame_differencer.save_reference_image(img, current_folder, picture_count, imagelog, picture_time)
 
         print("Saved background image - now frame differencing!")
 
@@ -189,7 +181,7 @@ while(True):
         #deferred analysis of images when scale is too small (not working yet)
         if(cfg.MIN_IMAGE_SCALE < cfg.THRESHOLD_IMAGE_SCALE_DEFER):
             print("Starting deferred analysis of images before sleeping...")
-            deferred_analysis(net, cfg.MIN_IMAGE_SCALE, predictions_list, current_folder)
+            deferred_analysis(cfg.NET_PATH, cfg.MIN_IMAGE_SCALE, predictions_list, current_folder)
 
         #compute time until wake-up
         if (cfg.TIME_COVERAGE == "day"):
@@ -211,8 +203,6 @@ while(True):
     #log status and battery voltage (if possible) every period
     if (pyb.elapsed_millis(start_time_status_ms) > cfg.LOG_STATUS_PERIOD_MS):
         start_time_status_ms = pyb.millis()
-        #  update internal RTC from external RTC
-        if(cfg.RTC_MODE != 'onboard'): ext_rtc.get_time(True)
         print("Updated time (Y,M,D):",rtc.datetime()[0:3],"and time (H,M,S):",rtc.datetime()[4:7])
         # turn on OFF LED module during voltage reading
         illumination.off(message="during voltage reading")
@@ -250,11 +240,11 @@ while(True):
             #blend with frame that is in buffer
             if cfg.INDICATORS_ENBLED: LED_CYAN_ON()
             
-            img_ori_fb.blend(img_ref_fb, alpha=(256-cfg.BACKGROUND_BLEND_LEVEL))
-            img_ref_fb.replace(img_ori_fb)
+            frame_differencer.blend_background(img)
 
-            img_ref_fb.save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",
-                            quality=cfg.JPEG_QUALITY)
+            # Save reference image to disk
+            frame_differencer.get_reference_image().save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",
+                        quality=cfg.JPEG_QUALITY)
 
             imagelog.append(picture_count, picture_time, 
                             sensor.get_exposure_us(), sensor.get_gain_db(), 
@@ -279,109 +269,66 @@ while(True):
             else: img_roi=img
 
             if(cfg.FRAME_DIFF_ENABLED):
-                #save original image
-                img_ori_fb.replace(img_roi)
+                # Process the frame using the frame differencer
+                img_roi, triggered, blobs_filt = frame_differencer.process_frame(img_roi)
 
-                #compute absolute frame difference
-                img_roi.difference(img_ref_fb)
-                #set trigger
-                triggered = False
-
-                try:
-                    blobs = img_roi.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert = True, merge = False, pixels_threshold = cfg.MIN_BLOB_PIXELS)
-                    #filter blobs with maximum pixels condition
-                    blobs_filt = [item for item in blobs if item[4]< cfg.MAX_BLOB_PIXELS]
-
-                    if (len(blobs_filt)>0):
-                        print(len(blobs_filt),"blob(s) within range!")
-                        triggered = True
-                        picture_count += 1
-
-                    for blob in blobs_filt:
-                        detection_count += 1
-                        color_statistics_temp = img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
-                        #optional marking of blobs
-                        if (cfg.INDICATORS_ENBLED):
-                            img.draw_edges(blob.corners(), color=(0,0,255), thickness=5)
-                            img.draw_rectangle(blob.rect(), color=(255,0,0), thickness=5)
-                        
-                        #log each detected blob
-                        detectionlog.append(detection_count, picture_count, 
-                                            blob.pixels(), blob.elongation(),
-                                            blob.corners()[0][0], blob.corners()[0][1], 
-                                            blob.corners()[1][0], blob.corners()[1][1],
-                                            blob.corners()[2][0], blob.corners()[2][1], 
-                                            blob.corners()[3][0], blob.corners()[3][1],
-                                            color_statistics_temp.l_mode(), color_statistics_temp.l_min(), color_statistics_temp.l_max(),
-                                            color_statistics_temp.a_mode(), color_statistics_temp.a_min(), color_statistics_temp.a_max(),
-                                            color_statistics_temp.b_mode(), color_statistics_temp.b_min(), color_statistics_temp.b_max(),
-                                            end_line=(cfg.CLASSIFY_MODE != "blobs"))
-                                            #we finish the CSV line here if not classifying
-
-                        if (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
-                            #set blob bounding box according to user parameters
-                            if (cfg.BLOBS_EXPORT_METHOD=="rectangle"):
-                                blob_rect=blob.rect()
-                            elif (cfg.BLOBS_EXPORT_METHOD=="square"):
-                                #get longest side of blob's bounding rectangle
-                                if (blob.w()>=blob.h()):
-                                    blob_h=blob.w()
-                                else: blob_h=blob.h()
-                                if (blob.h()>blob.w()):
-                                    blob_w=blob.h()
-                                else: blob_w=blob.w()
-                                if (blob_h>image_height):
-                                    if cfg.INDICATORS_ENBLED: print("Cannot export blob bounding square as its height would exceed the image height! Using image height instead.")
-                                    blob_h=image_height
-                                #get new coordinates depending on location of blob relative to border
-                                if (blob.x()+blob_w>=image_width):
-                                    blob_x=image_width-blob_w
-                                else: blob_x=blob.x()
-                                if (blob.y()+blob_h>=image_height):
-                                    blob_y=image_height-blob_w
-                                else: blob_y=blob.y()
-                                #set blob
-                                blob_rect=(blob_x,blob_y,blob_w,blob_h)
-                                #draw square
-                                if (cfg.INDICATORS_ENBLED):
-                                    img.draw_rectangle(blob_rect, color=(0,255,0), thickness=10)
-                            #extract blob
-                            img_blob=img_ori_fb.copy(roi=blob_rect,copy_to_fb=True)
-                            #saving extracted blob rectangles/squares
-                            if (cfg.BLOBS_EXPORT_METHOD!="none"):
-                                #optional: turn on LED while saving blob bounding boxes
-                                if (cfg.INDICATORS_ENBLED):
-                                    LED_GREEN_ON()
-                                print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
-                                img_blob.save(str(current_folder)+"/jpegs/blobs/" + str(picture_count) + "_d" + str(detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
-                                if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
-                            if (cfg.CLASSIFY_MODE == "blobs"):
-                                #optional: turn on LED while classifying
-                                if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
-                                #rescale blob rectangle
-                                img_blob_resized=img_blob.copy(x_size=cfg.MODEL_RES,y_size=cfg.MODEL_RES,copy_to_fb=True,hint=image.BICUBIC)
-                                # we do not need a loop since we do not analyse blob subsets
-                                obj = tf.classify(net,img_blob_resized)[0]
-                                predictions_list = list(zip(labels, obj.output()))
-                                print("Predictions for classified blob:", predictions_list)
-
-                                detectionlog.append(";".join(map(str,labels)), 
-                                                    ";".join(map(str,obj.output())), 
-                                                    blob.rect()[0], blob.rect()[1], 
-                                                    blob.rect()[2], blob.rect()[3], 
-                                                    prepend_comma=True)
-
-                                if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
-
-                        #go to next loop if only first blob is needed
-                        if (cfg.BLOB_TASK == "stop"):
-                            break
-
-                except MemoryError:
-                    #when there is a memory error, we assume that it is triggered because of many blobs
-                    triggered = True
+                if (triggered):
+                    print(len(blobs_filt),"blob(s) within range!")
                     picture_count += 1
-                    write_status("-","memory error",current_folder)
+
+                for blob in blobs_filt:
+                    detection_count += 1
+                    color_statistics_temp = img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
+                    #optional marking of blobs
+                    if (cfg.INDICATORS_ENBLED):
+                        frame_differencer.mark_blobs(img, [blob])
+                    
+                    #log each detected blob
+                    detectionlog.append(detection_count, picture_count, 
+                                        blob.pixels(), blob.elongation(),
+                                        blob.corners()[0][0], blob.corners()[0][1], 
+                                        blob.corners()[1][0], blob.corners()[1][1],
+                                        blob.corners()[2][0], blob.corners()[2][1], 
+                                        blob.corners()[3][0], blob.corners()[3][1],
+                                        color_statistics_temp.l_mode(), color_statistics_temp.l_min(), color_statistics_temp.l_max(),
+                                        color_statistics_temp.a_mode(), color_statistics_temp.a_min(), color_statistics_temp.a_max(),
+                                        color_statistics_temp.b_mode(), color_statistics_temp.b_min(), color_statistics_temp.b_max(),
+                                        end_line=(cfg.CLASSIFY_MODE != "blobs"))
+                                        #we finish the CSV line here if not classifying
+
+                    if (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
+                        # Extract blob region using frame differencer
+                        blob_rect, img_blob = frame_differencer.extract_blob_region(blob)
+                        
+                        #saving extracted blob rectangles/squares
+                        if (cfg.BLOBS_EXPORT_METHOD!="none"):
+                            #optional: turn on LED while saving blob bounding boxes
+                            if (cfg.INDICATORS_ENBLED):
+                                LED_GREEN_ON()
+                            print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
+                            img_blob.save(str(current_folder)+"/jpegs/blobs/" + str(picture_count) + "_d" + str(detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
+                            if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
+                        if (cfg.CLASSIFY_MODE == "blobs"):
+                            #optional: turn on LED while classifying
+                            if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
+                            #rescale blob rectangle
+                            img_blob_resized=img_blob.copy(x_size=cfg.MODEL_RES,y_size=cfg.MODEL_RES,copy_to_fb=True,hint=image.BICUBIC)
+                            # we do not need a loop since we do not analyse blob subsets
+                            obj = tf.classify(cfg.NET_PATH, img_blob_resized)[0]
+                            predictions_list = list(zip(labels, obj.output()))
+                            print("Predictions for classified blob:", predictions_list)
+
+                            detectionlog.append(";".join(map(str,labels)), 
+                                                ";".join(map(str,obj.output())), 
+                                                blob.rect()[0], blob.rect()[1], 
+                                                blob.rect()[2], blob.rect()[3], 
+                                                prepend_comma=True)
+
+                            if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
+
+                    #go to next loop if only first blob is needed
+                    if (cfg.BLOB_TASK == "stop"):
+                        break
             #if frame differencing is disabled, every image is considered triggered and counted outside live view mode
             elif (cfg.MODE != Mode.LIVE_VIEW):
                 triggered = True
@@ -407,14 +354,14 @@ while(True):
                     print("Running image classification on ROI...")
                     detected = False
                     #revert image_roi replacement to get original image for classification
-                    if cfg.FRAME_DIFF_ENABLED: img_roi.replace(img_ori_fb)
+                    if cfg.FRAME_DIFF_ENABLED: frame_differencer.restore_original_image(img_roi)
                     #only analyse when classification is feasible within reasonable time frame
                     if (cfg.MIN_IMAGE_SCALE >= cfg.THRESHOLD_IMAGE_SCALE_DEFER):
                         print("Classifying ROI or image...")
                         #rescale image to get better model results
                         img_net=img_roi.copy(x_size=cfg.MODEL_RES,y_size=cfg.MODEL_RES,copy_to_fb=True,hint=image.BICUBIC)
                         #start image classification
-                        for obj in tf.classify(net, img_roi, min_scale=cfg.MIN_IMAGE_SCALE, scale_mul=0.5, x_overlap=0.5, y_overlap=0.5):
+                        for obj in tf.classify(cfg.NET_PATH, img_roi, min_scale=cfg.MIN_IMAGE_SCALE, scale_mul=0.5, x_overlap=0.5, y_overlap=0.5):
                             #initialise threshold check
                             threshold_exceeded =  False
                             #put predictions in readable format
@@ -450,9 +397,9 @@ while(True):
                     print("Running object detection on ROI...")
                     detected = False
                     #revert image_roi replacement to get original image for classification
-                    if cfg.FRAME_DIFF_ENABLED: img_roi.replace(img_ori_fb)
+                    if cfg.FRAME_DIFF_ENABLED: frame_differencer.restore_original_image(img_roi)
                     #loop through labels
-                    for i, detection_list in enumerate(tf.detect(net,img_roi, thresholds=[(math.ceil(cfg.THRESHOLD_CONFIDENCE * 255), 255)])):
+                    for i, detection_list in enumerate(tf.detect(cfg.NET_PATH,img_roi, thresholds=[(math.ceil(cfg.THRESHOLD_CONFIDENCE * 255), 255)])):
                         if (i == 0): continue # background class
                         if (len(detection_list) == 0): continue # no detections for this class?
                         detected = True
@@ -483,7 +430,7 @@ while(True):
                     print("Saving ROI or whole image...")
                     if cfg.INDICATORS_ENBLED: LED_GREEN_ON()
                     #revert image_roi replacement to get original image for classification
-                    if (cfg.FRAME_DIFF_ENABLED): img_roi.replace(img_ori_fb)
+                    if (cfg.FRAME_DIFF_ENABLED): frame_differencer.restore_original_image(img_roi)
                     # Save picture with detection ID
                     img_roi.save(str(current_folder)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
                     if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()

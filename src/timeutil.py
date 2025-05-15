@@ -2,7 +2,7 @@ import machine, pyb, time
 import config.settings as cfg
 
 ### Sunrise and sunset class ###
-class suntime:
+class Suntime:
 
     def __init__(self, op_t, sr_h, sr_m, ss_h, ss_m):
         self.op_t = op_t
@@ -84,27 +84,31 @@ class suntime:
         return operation_time_check
 
 
-class rtc:
+class Rtc:
     def __init__(self):
         # initialise RTC object
-        self.pyb_rtc = pyb.RTC()
+        self.rtc = pyb.RTC()
         # set rtc from user definedc date and time only on power on
         if (machine.reset_cause() != machine.DEEPSLEEP_RESET and cfg.RTC_MODE == 'onboard'):
-            self.pyb_rtc.datetime(cfg.START_DATETIME)
+            self.rtc.datetime(cfg.START_DATETIME)
         if(cfg.RTC_MODE == 'ds3231'):
-            # import necessary librairies
+            # where is this lib ?
             from ds3231 import DS3231
             # initialize i2c pins on P7 (SCL) and P8 (SDA) and DS3231 as ext_rtc
             i2c = machine.SoftI2C(sda=pyb.Pin('P8'), scl=pyb.Pin('P7'))
-            ext_rtc = DS3231(i2c)
-            ext_rtc.get_time(True)
+            self.rtc = DS3231(i2c)
+            self.rtc.get_time(True)
         if(cfg.RTC_MODE == 'pcf8563'):
-            # import necessary librairies
+            # where is this lib ?
             from pcf8563 import PCF8563
             # initialize i2c pins on P4 (SCL) and P5 (SDA) and PCF8563 as ext_rtc
             i2c = machine.SoftI2C(sda=pyb.Pin('P5'), scl=pyb.Pin('P4'))
-            ext_rtc = PCF8563(i2c)
-            ext_rtc.get_time(True)
+            self.rtc = PCF8563(i2c)
+            self.rtc.get_time(True)
         
     def datetime(self):
-        return self.pyb_rtc.datetime()
+        if(cfg.RTC_MODE != 'onboard'): 
+            #  update internal RTC from external RTC
+            self.rtc.get_time(True)
+
+        return self.rtc.datetime()

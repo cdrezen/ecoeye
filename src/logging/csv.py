@@ -1,5 +1,7 @@
 import os
 
+print("NEW CODE !!!!!!!")
+
 class Csv:
     """
     A class to handle CSV file operations.
@@ -25,10 +27,12 @@ class Csv:
         # else: raise Exception(f"Csv file {self.path} already exists.")
         return
 
-    def append(self, prepend_comma=False, end_line=True, *data):
+    def append(self, *data, prepend_comma=False, end_line=True):
         """
         Append data to the CSV file.
         :param data: List of data to append to the CSV file.
+        :param prepend_comma: Whether to prepend a comma before the data.
+        :param end_line: Whether to end the line after the data.
         """
         
         print(self.path)
@@ -36,8 +40,8 @@ class Csv:
         with open(self.path, 'a') as file:
             start = ',' if prepend_comma else ''
             ending = '\n' if end_line else ''
-            data = ','.join([str(d) for d in data]) if data else ''
-            file.write(start + data + ending)
+            data_str = ','.join([str(d) for d in data]) if data else ''
+            file.write(start + data_str + ending)
         return
 
     def read(self):
