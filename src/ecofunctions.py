@@ -124,26 +124,26 @@ def expose(exposure_control,exposure_bias_day,exposure_bias_night,gain_bias,expo
 # predictions_list
 # --- Output variables ---
 # none
-def deferred_analysis(net,minimum_image_scale,predictions_list,folder):
+def deferred_analysis(net,minimum_image_scale,predictions_list):
     print("Starting deferred analysis of images before sleeping...")
     #scan jpegs on card
     os.sync()
     sensor.dealloc_extra_fb()
     sensor.dealloc_extra_fb()
     print("current working dir:",os.getcwd())
-    files=os.listdir(str(folder)+"/jpegs")
+    files=os.listdir("jpegs")
     jpegs=[files for files in files if "jpg" in files]
     print(jpegs)
     #open and classify each jpeg
     for jpeg in jpegs:
         print("Loading:",jpeg)
-        img=image.Image(str(folder)+"//jpegs/picture_1.jpg",copy_to_fb=True)
+        img=image.Image("jpegs/picture_1.jpg",copy_to_fb=True)
         #convert to proper format
         img.to_rgb565()
         #img=image.Image("/jpegs/picture_1.jpg"+jpeg,copy_to_fb=True)
         print("LED on: classifying image", jpeg, "with tensorflow lite...")
         for obj in tf.classify(net, img, min_scale=minimum_image_scale, scale_mul=0.5, x_overlap=0.5, y_overlap=0.5):
-            with open(str(folder)+'/detections.csv', 'a') as detectionlog:
+            with open('detections.csv', 'a') as detectionlog:
                 detectionlog.write(str(jpeg) + ',' + str(predictions_list[1][0]) + ',' + str(predictions_list[1][1]) + ',' + str(obj.rect()[0]) + ',' + str(obj.rect()[1]) + ',' + str(obj.rect()[2]) + ',' + str(obj.rect()[3]) + ',' + str(predictions_list[0][0]) + ',' + str(predictions_list[0][1]) + '\n')
     return
 

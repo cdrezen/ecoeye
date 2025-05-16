@@ -12,7 +12,7 @@ from hardware.voltage_divider import vdiv_build, is_battery_low
 from hardware.led import *
 from timeutil import Suntime, Rtc
 from classify import load_model
-from logging.file import read_filevars, write_filevars, write_status, init_files
+from logging.session import Session
 from vision.frame_differencer import FrameDifferencer
 
 
@@ -25,7 +25,7 @@ rtc = Rtc()
 exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [1]
 last_exposure = 0
 illumination = Illumination()
-current_folder = "/"
+session: Session = None
 picture_count, detection_count = 0, 0
 imagelog, detectionlog = None, None
 is_night = not solartime.is_daytime()
@@ -42,17 +42,17 @@ detected = False
 #start clock
 clock = None
 # Frame differencing handler
-frame_differencer = None
+frame_differencer: FrameDifferencer = None
 
 def check_battery_sleep(vbat=None, print_status=""):
     # check voltage and save status, if battery too low -> sleep until sunrise
     if(vbat == None):
         vbat = vdiv_bat.read_voltage()
     if(print_status != ""):
-        write_status(vbat, print_status, current_folder)
+        session.log_status(vbat, print_status)
     if is_battery_low(vbat):
-        write_filevars(current_folder, picture_count, detection_count)
-        write_status(vbat,"Battery low - Sleeping", current_folder)
+        session.save()
+        session.log_status(vbat, "Battery low - Sleeping")
         indicator_dsleep(solartime.time_until_sunrise() + AFTER_SUNRISE_DELAY, cfg.ACTIVE_LED_INTERVAL_MS)
 
 def take_picture(do_expose, exposure_mult = None):
@@ -87,27 +87,27 @@ def take_picture(do_expose, exposure_mult = None):
     return img, picture_time
 
 def init():
-    global current_folder, picture_count, detection_count, imagelog, detectionlog
     global start_time_status_ms, start_time_blending_ms, start_time_active_LED_ms, clock
-    global labels, non_target_indices, wifi_enabled, img_ref_fb, img_ori_fb
+    global labels, non_target_indices, wifi_enabled, session, imagelog, detectionlog
     
     # perform quick start from sleep check
     start_check()
 
     print(f"Initializing on {Mode.to_str(cfg.MODE)} mode...")
 
-    # On wakeup from deep sleep, fetch variables from files
+    # On wakeup from deep sleep, fetch environment from session.json
     if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
-        current_folder, picture_count, detection_count = read_filevars()
+        session = Session.load()
+        if not session: session = Session.create(rtc)
         check_battery_sleep(print_status="Script start - Waking")
 
     # create and initialize new folders only on powerup or soft reset
     if (machine.reset_cause() != machine.DEEPSLEEP_RESET and cfg.MODE != Mode.LIVE_VIEW):
-
         # create necessary files & folders
-        current_folder, imagelog, detectionlog = init_files(rtc)
-
+        session = Session.create(rtc)
         check_battery_sleep(print_status="Script start - Initialising")
+
+    imagelog, detectionlog = session.imagelog, session.detectionlog
 
     #import mobilenet model and labels
     if(cfg.CLASSIFY_MODE != "none"):
@@ -115,9 +115,6 @@ def init():
 
     # verify that wifi shield is connected when wifi is enabled
     wifi_enabled = cfg.WIFI_ENABLED and wifishield_isconnnected()
-
-    if (cfg.FRAME_DIFF_ENABLED and cfg.EXPOSURE_MODE=="auto"): 
-        print("ATTENTION: using automatic exposure with frame differencing can result in spurious triggers!")
 
     ### SENSOR INIT ###
 
@@ -150,13 +147,9 @@ def init():
     #Frame buffer memory management
     if(cfg.FRAME_DIFF_ENABLED):
         # Initialize the frame differencer
-        frame_differencer = FrameDifferencer(image_width, image_height, sensor_pixformat)
-
-        print("Saving background image...")
-        picture_count += 1
-
+        frame_differencer = FrameDifferencer(image_width, image_height, sensor_pixformat, imagelog)
         img, picture_time = take_picture(do_expose=True)
-        frame_differencer.save_reference_image(img, current_folder, picture_count, imagelog, picture_time)
+        frame_differencer.save_reference_image(img, picture_time)
 
         print("Saved background image - now frame differencing!")
 
@@ -181,15 +174,15 @@ while(True):
         #deferred analysis of images when scale is too small (not working yet)
         if(cfg.MIN_IMAGE_SCALE < cfg.THRESHOLD_IMAGE_SCALE_DEFER):
             print("Starting deferred analysis of images before sleeping...")
-            deferred_analysis(cfg.NET_PATH, cfg.MIN_IMAGE_SCALE, predictions_list, current_folder)
+            deferred_analysis(cfg.NET_PATH, cfg.MIN_IMAGE_SCALE, predictions_list)
 
         #compute time until wake-up
         if (cfg.TIME_COVERAGE == "day"):
             sleep_time = solartime.time_until_sunrise()
         if (cfg.TIME_COVERAGE == "night"):
             sleep_time = solartime.time_until_sunset()
-        write_filevars(current_folder, picture_count, detection_count)
-        write_status(vbat,"Outside operation time - Sleeping",current_folder)
+        session.save()
+        session.log_status(vbat, "Outside operation time - Sleeping")
         indicator_dsleep(sleep_time, cfg.ACTIVE_LED_INTERVAL_MS)
 
     # continue script when operation time
@@ -209,7 +202,7 @@ while(True):
         # check voltage and save status, if battery too low -> sleep until sunrise
         vbat = vdiv_bat.read_voltage()
         check_battery_sleep(vbat=vbat)
-        write_status(vbat,"Script running - Normal operation",current_folder)
+        session.log_status(vbat, "Script running - Normal operation")
         # at night, turn ON selected illumination LEDs if always ON mode
         if(illumination.can_turn_on(is_night)):
             illumination.on(message="after voltage reading")
@@ -229,26 +222,11 @@ while(True):
         if (cfg.FRAME_DIFF_ENABLED):
             print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(start_time_blending_ms)/1000)),"seconds")
             #take new picture
-            picture_count += 1
             img, picture_time = take_picture(do_expose=True)
-            # Blend in new frame. We're doing 256-alpha here because we want to
-            # blend the new frame into the background. Not the background into the
-            # new frame which would be just alpha. Blend replaces each pixel by
-            # ((NEW*(alpha))+(OLD*(256-alpha)))/256. So, a low alpha results in
-            # low blending of the new image while a high alpha results in high
-            # blending of the new image. We need to reverse that for this update.
-            #blend with frame that is in buffer
+
             if cfg.INDICATORS_ENBLED: LED_CYAN_ON()
             
-            frame_differencer.blend_background(img)
-
-            # Save reference image to disk
-            frame_differencer.get_reference_image().save(str(current_folder)+"/jpegs/reference/"+str(picture_count)+"_reference.jpg",
-                        quality=cfg.JPEG_QUALITY)
-
-            imagelog.append(picture_count, picture_time, 
-                            sensor.get_exposure_us(), sensor.get_gain_db(), 
-                            clock.fps(), "reference")
+            frame_differencer.blend_background(img, picture_time, clock.fps())
             
             if cfg.INDICATORS_ENBLED: LED_CYAN_OFF()
         #reset blending time counter
@@ -274,26 +252,15 @@ while(True):
 
                 if (triggered):
                     print(len(blobs_filt),"blob(s) within range!")
-                    picture_count += 1
 
                 for blob in blobs_filt:
-                    detection_count += 1
-                    color_statistics_temp = img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
+                    color_statistics = img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
                     #optional marking of blobs
                     if (cfg.INDICATORS_ENBLED):
                         frame_differencer.mark_blobs(img, [blob])
                     
                     #log each detected blob
-                    detectionlog.append(detection_count, picture_count, 
-                                        blob.pixels(), blob.elongation(),
-                                        blob.corners()[0][0], blob.corners()[0][1], 
-                                        blob.corners()[1][0], blob.corners()[1][1],
-                                        blob.corners()[2][0], blob.corners()[2][1], 
-                                        blob.corners()[3][0], blob.corners()[3][1],
-                                        color_statistics_temp.l_mode(), color_statistics_temp.l_min(), color_statistics_temp.l_max(),
-                                        color_statistics_temp.a_mode(), color_statistics_temp.a_min(), color_statistics_temp.a_max(),
-                                        color_statistics_temp.b_mode(), color_statistics_temp.b_min(), color_statistics_temp.b_max(),
-                                        end_line=(cfg.CLASSIFY_MODE != "blobs"))
+                    detectionlog.append(imagelog.picture_count, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
                                         #we finish the CSV line here if not classifying
 
                     if (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
@@ -306,7 +273,7 @@ while(True):
                             if (cfg.INDICATORS_ENBLED):
                                 LED_GREEN_ON()
                             print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
-                            img_blob.save(str(current_folder)+"/jpegs/blobs/" + str(picture_count) + "_d" + str(detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
+                            img_blob.save("/jpegs/blobs/" + str(imagelog.picture_count) + "_d" + str(detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
                             if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
                         if (cfg.CLASSIFY_MODE == "blobs"):
                             #optional: turn on LED while classifying
@@ -318,11 +285,7 @@ while(True):
                             predictions_list = list(zip(labels, obj.output()))
                             print("Predictions for classified blob:", predictions_list)
 
-                            detectionlog.append(";".join(map(str,labels)), 
-                                                ";".join(map(str,obj.output())), 
-                                                blob.rect()[0], blob.rect()[1], 
-                                                blob.rect()[2], blob.rect()[3], 
-                                                prepend_comma=True)
+                            detectionlog.append(labels=labels, confidences=obj.output(), rect=blob.rect(), prepend_comma=True)
 
                             if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
 
@@ -332,20 +295,14 @@ while(True):
             #if frame differencing is disabled, every image is considered triggered and counted outside live view mode
             elif (cfg.MODE != Mode.LIVE_VIEW):
                 triggered = True
-                picture_count += 1
             #log roi image data, possibly classify and save image
             if(triggered):
                 #save image log
                 if (cfg.MODE != Mode.LIVE_VIEW):
                     if (not cfg.USE_ROI):
-                        imagelog.append(picture_count, picture_time, 
-                                        sensor.get_exposure_us(), sensor.get_gain_db(), 
-                                        clock.fps())
+                        imagelog.append(picture_time, clock.fps())
                     else:
-                        imagelog.append(picture_count, picture_time, 
-                                        sensor.get_exposure_us(), sensor.get_gain_db(), 
-                                        clock.fps(), roi_temp[0], roi_temp[1], 
-                                        roi_temp[2], roi_temp[3])
+                        imagelog.append(picture_time, clock.fps(), roi_temp)
                 # init detection confidence variable
                 detection_confidence = 0
                 #classify image
@@ -376,19 +333,9 @@ while(True):
                             #log model scores if any target is above threshold
                             if(threshold_exceeded):
                                 detected = True
-                                detection_count +=1
                                 print("Detected target! Logging detection...")
                                 #logging detection
-                                detectionlog.append(detection_count, picture_count, 
-                                                    "NA", "NA", "NA", "NA", 
-                                                    "NA", "NA", "NA", "NA", 
-                                                    "NA", "NA", "NA", "NA", 
-                                                    "NA", "NA", "NA", "NA", 
-                                                    "NA", "NA", "NA",
-                                                    ";".join(map(str,labels)), 
-                                                    ";".join(map(str,obj.output())), 
-                                                    roi_temp[0], roi_temp[1], 
-                                                    roi_temp[2], roi_temp[3])
+                                detectionlog.append(imagelog.picture_count, labels=labels, confidences=obj.output(), rect=roi_temp)
 
                     if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
                 #object detection. not compatible with ROI mode
@@ -408,20 +355,14 @@ while(True):
                         print("whole list",detection_list)
                         for d in detection_list:
                             if(detection_confidence < d[4]): detection_confidence = d[4]
-                            detection_count +=1
                             [x, y, w, h] = d.rect()
                             
                             #optional: display bounding box
                             if (cfg.INDICATORS_ENBLED):
                                 img.draw_rectangle(d.rect(), color=cfg.CLASS_COLORS[i+1], thickness=2)
                             
-                            detectionlog.append(detection_count, picture_count, 
-                                                "NA", "NA", "NA", "NA", 
-                                                "NA", "NA", "NA", "NA",
-                                                "NA", "NA", "NA", "NA", 
-                                                "NA", "NA", "NA", "NA", 
-                                                "NA", "NA", "NA",
-                                                labels[i], d[4], d[0], d[1], d[2], d[3])
+                            detectionlog.append(imagelog.picture_count, labels=labels[i], confidences=d[4], rect=d.rect())
+                            
                     if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
                 elif(cfg.CLASSIFY_MODE=="objects" and cfg.USE_ROI): print("Object detection skipped, as it is not compatible with using ROIs!")
 
@@ -432,7 +373,7 @@ while(True):
                     #revert image_roi replacement to get original image for classification
                     if (cfg.FRAME_DIFF_ENABLED): frame_differencer.restore_original_image(img_roi)
                     # Save picture with detection ID
-                    img_roi.save(str(current_folder)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
+                    img_roi.save(str(session.path)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(imagelog.picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
                     if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
                 # copy and save compressed image to send it over wifi later
                 if(wifi_enabled and cfg.UPLOAD_IMAGE_ENABLED and detection_confidence >= cfg.UPLOAD_CONFIDENCE_THRESHOLD):
@@ -491,12 +432,12 @@ while(True):
         # before deep sleep, turn off illumination LEDs if on
         illumination.off(no_cooldown=True, message="before deep sleep")
         # save variables and log status before going ot sleep
-        write_filevars(current_folder, picture_count, detection_count)
-        write_status(vbat,"Delay loop - Sleeping",current_folder)
+        session.save()
+        session.log_status(vbat, "Delay loop - Sleeping")
         # go to sleep until next picture with blinking indicator
         indicator_dsleep(pic_delay*1000,cfg.ACTIVE_LED_INTERVAL_MS)
 
         # (when light sleep is used) check voltage and save status, if battery too low -> sleep until sunrise
         vbat = vdiv_bat.read_voltage()
         check_battery_sleep(vbat=vbat)
-        write_status(vbat,"Delay loop - waking",current_folder)
+        session.log_status(vbat, "Delay loop - Waking")

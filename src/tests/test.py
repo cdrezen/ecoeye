@@ -48,7 +48,7 @@ assert start != end
 ###
 
 ### test file
-from logging.file import *
+from logging.session import *
 
 new_folder_name, imagelog, detectionlog = init_files(rtc)
 

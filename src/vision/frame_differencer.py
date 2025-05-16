@@ -7,7 +7,7 @@ class FrameDifferencer:
     """
     Handles frame differencing functionality for motion detection.
     """
-    def __init__(self, image_width, image_height, sensor_pixformat):
+    def __init__(self, image_width, image_height, sensor_pixformat, imagelog):
         """
         Initialize the frame differencer with reference and original framebuffers.
         
@@ -21,7 +21,10 @@ class FrameDifferencer:
         self.sensor_pixformat = sensor_pixformat
         self.img_ref_fb = None
         self.img_ori_fb = None
+        self.imagelog = imagelog
         self.initialize_framebuffers()
+        if (cfg.EXPOSURE_MODE=="auto"): 
+            print("ATTENTION: using automatic exposure with frame differencing can result in spurious triggers!")
         
     def initialize_framebuffers(self):
         """Allocate frame buffers for reference and original images"""
@@ -33,7 +36,7 @@ class FrameDifferencer:
         self.img_ref_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
         self.img_ori_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
     
-    def save_reference_image(self, img, current_folder, picture_count, imagelog, picture_time):
+    def save_reference_image(self, img, picture_time):
         """
         Save the current image as the reference image
         
@@ -47,25 +50,36 @@ class FrameDifferencer:
         # Store the image as reference
         self.img_ref_fb.replace(img)
         
-        # Save reference image to disk
-        self.img_ref_fb.save(f"{current_folder}/jpegs/reference/{picture_count}_reference.jpg",
-                            quality=cfg.JPEG_QUALITY)
-        
         # Log reference image data
-        imagelog.append(picture_count, picture_time, 
+        self.imagelog.append(picture_time, 
                         sensor.get_exposure_us(), sensor.get_gain_db(), 
                         "NA", "reference")
+        
+        # Save reference image to disk
+        self.img_ref_fb.save(f"/jpegs/reference/{self.imagelog.picture_count}_reference.jpg",
+                            quality=cfg.JPEG_QUALITY)
     
-    def blend_background(self, img):
+    def blend_background(self, img, picture_time, fps):
         """
         Blend the new image into the background reference
         
         Args:
             img: New image to blend with reference
         """
-        # Blend with frame that is in buffer
+        # Blend in new frame. We're doing 256-alpha here because we want to
+        # blend the new frame into the background. Not the background into the
+        # new frame which would be just alpha. Blend replaces each pixel by
+        # ((NEW*(alpha))+(OLD*(256-alpha)))/256. So, a low alpha results in
+        # low blending of the new image while a high alpha results in high
+        # blending of the new image. We need to reverse that for this update.
+        #blend with frame that is in buffer
         self.img_ori_fb.blend(self.img_ref_fb, alpha=(256-cfg.BACKGROUND_BLEND_LEVEL))
         self.img_ref_fb.replace(self.img_ori_fb)
+        
+        # Save reference image to disk
+        self.imagelog.append(picture_time, sensor.get_exposure_us(), sensor.get_gain_db(), fps, "reference")
+        self.img_ref_fb.save("jpegs/reference/"+str(self.imagelog.picture_count)+"_reference.jpg",
+                    quality=cfg.JPEG_QUALITY)
     
     def process_frame(self, img):
         """
