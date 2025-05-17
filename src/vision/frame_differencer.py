@@ -89,7 +89,7 @@ class FrameDifferencer:
                     quality=cfg.JPEG_QUALITY)
         
     
-    def process_frame(self, img):
+    def process_frame(self, img: image.Image):
         """
         Process a frame for motion detection with frame differencing.
         

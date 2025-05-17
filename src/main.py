@@ -112,7 +112,7 @@ def init():
 
     #import mobilenet model and labels
     if(cfg.CLASSIFY_MODE != "none"):
-        classifier = Classifier()
+        classifier = Classifier(session)
 
     # verify that wifi shield is connected when wifi is enabled
     wifi_enabled = cfg.WIFI_ENABLED and wifishield_isconnnected()
@@ -173,9 +173,10 @@ while(True):
         # before deep sleep, turn off illumination LEDs if on
         illumination.off("before deep sleep")
         #deferred analysis of images when scale is too small (not working yet)
+        # TODO: re-implement deferred analysis
         if(cfg.MIN_IMAGE_SCALE < cfg.THRESHOLD_IMAGE_SCALE_DEFER):
             print("Starting deferred analysis of images before sleeping...")
-            deferred_analysis(cfg.NET_PATH, cfg.MIN_IMAGE_SCALE, predictions_list)
+            # deferred_analysis(cfg.NET_PATH, cfg.MIN_IMAGE_SCALE, predictions_list)
 
         #compute time until wake-up
         if (cfg.TIME_COVERAGE == "day"):
@@ -262,18 +263,16 @@ while(True):
                         # Extract blob region using frame differencer
                         blob_rect, img_blob = frame_differencer.extract_blob_region(blob)
                         
+                    if (cfg.BLOBS_EXPORT_METHOD!="none"):
                         #saving extracted blob rectangles/squares
-                        if (cfg.BLOBS_EXPORT_METHOD!="none"):
-                            #optional: turn on LED while saving blob bounding boxes
-                            if (cfg.INDICATORS_ENBLED): LED_GREEN_ON()
-                            print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
-                            img_blob.save("jpegs/blobs/" + str(imagelog.picture_count) + "_d" + str(detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
-                            if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
-                        if (cfg.CLASSIFY_MODE == "blobs"):
-
-                            output = classifier.classify(img_blob, cfg.CLASSIFY_MODE)
-                            detectionlog.append(imagelog.picture_count, labels=classifier.labels, 
-                                                confidences=output, rect=blob.rect(), prepend_comma=True)
+                        if (cfg.INDICATORS_ENBLED): LED_GREEN_ON()
+                        print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
+                        img_blob.save("jpegs/blobs/" + str(imagelog.picture_count) + "_d" + str(detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
+                        if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
+                    if (cfg.CLASSIFY_MODE == "blobs"):
+                        output = classifier.classify(img_blob, cfg.CLASSIFY_MODE)
+                        detectionlog.append(imagelog.picture_count, labels=classifier.labels, 
+                                            confidences=output, rect=blob.rect(), prepend_comma=True)
                     #go to next loop if only first blob is needed
                     if (cfg.BLOB_TASK == "stop"):
                         break

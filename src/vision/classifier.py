@@ -4,7 +4,7 @@ import config.settings as cfg
 
 ### TODO: use design pattern
 class Classifier:
-    def __init__(self, session, frame_differencer):
+    def __init__(self, session):
         #TODO: make sure to not use duplicated loggers
         self.detectionlog = session.detectionlog
         self.imagelog = session.imagelog
