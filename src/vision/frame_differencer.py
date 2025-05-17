@@ -2,6 +2,7 @@
 
 import sensor, image
 import config.settings as cfg
+from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
 
 class FrameDifferencer:
     """
@@ -66,6 +67,9 @@ class FrameDifferencer:
         Args:
             img: New image to blend with reference
         """
+
+        if cfg.INDICATORS_ENBLED: LED_CYAN_ON()
+
         # Blend in new frame. We're doing 256-alpha here because we want to
         # blend the new frame into the background. Not the background into the
         # new frame which would be just alpha. Blend replaces each pixel by
@@ -75,11 +79,15 @@ class FrameDifferencer:
         #blend with frame that is in buffer
         self.img_ori_fb.blend(self.img_ref_fb, alpha=(256-cfg.BACKGROUND_BLEND_LEVEL))
         self.img_ref_fb.replace(self.img_ori_fb)
+
+        if cfg.INDICATORS_ENBLED: LED_CYAN_OFF()
+
         
         # Save reference image to disk
         self.imagelog.append(picture_time, sensor.get_exposure_us(), sensor.get_gain_db(), fps, "reference")
         self.img_ref_fb.save("jpegs/reference/"+str(self.imagelog.picture_count)+"_reference.jpg",
                     quality=cfg.JPEG_QUALITY)
+        
     
     def process_frame(self, img):
         """

@@ -33,7 +33,7 @@ class Session:
 
         os.chdir(self.DATA_FOLDER)
         
-        self.path = self._find_new_folder_name(rtc)
+        self.path = f"{self.DATA_FOLDER}/{self._find_new_folder_name(rtc)}"
     
         os.mkdir(str(self.path))
         os.chdir(str(self.path))

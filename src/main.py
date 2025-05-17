@@ -11,9 +11,9 @@ from ecofunctions import *
 from hardware.voltage_divider import vdiv_build, is_battery_low
 from hardware.led import *
 from timeutil import Suntime, Rtc
-from classify import load_model
 from logging.session import Session
 from vision.frame_differencer import FrameDifferencer
+from vision.classifier import Classifier
 
 
 AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
@@ -43,6 +43,7 @@ detected = False
 clock = None
 # Frame differencing handler
 frame_differencer: FrameDifferencer = None
+classifier: Classifier = None
 
 def check_battery_sleep(vbat=None, print_status=""):
     # check voltage and save status, if battery too low -> sleep until sunrise
@@ -88,7 +89,7 @@ def take_picture(do_expose, exposure_mult = None):
 
 def init():
     global start_time_status_ms, start_time_blending_ms, start_time_active_LED_ms, clock
-    global labels, non_target_indices, wifi_enabled, session, imagelog, detectionlog
+    global wifi_enabled, session, imagelog, detectionlog, classifier
     
     # perform quick start from sleep check
     start_check()
@@ -111,7 +112,7 @@ def init():
 
     #import mobilenet model and labels
     if(cfg.CLASSIFY_MODE != "none"):
-        labels, non_target_indices = load_model()
+        classifier = Classifier()
 
     # verify that wifi shield is connected when wifi is enabled
     wifi_enabled = cfg.WIFI_ENABLED and wifishield_isconnnected()
@@ -186,6 +187,7 @@ while(True):
         indicator_dsleep(sleep_time, cfg.ACTIVE_LED_INTERVAL_MS)
 
     # continue script when operation time
+    
     clock.tick()
     # update night time check
     is_night = not solartime.is_daytime()
@@ -223,12 +225,8 @@ while(True):
             print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(start_time_blending_ms)/1000)),"seconds")
             #take new picture
             img, picture_time = take_picture(do_expose=True)
-
-            if cfg.INDICATORS_ENBLED: LED_CYAN_ON()
-            
             frame_differencer.blend_background(img, picture_time, clock.fps())
             
-            if cfg.INDICATORS_ENBLED: LED_CYAN_OFF()
         #reset blending time counter
         start_time_blending_ms = pyb.millis()
 
@@ -241,19 +239,16 @@ while(True):
         #start cycling over ROIs
         # cfg.ROIS_RECT) length==1 if cfg.USE_ROI==False
         for roi_temp in cfg.ROI_RECTS:
-            if (cfg.USE_ROI):
-                print("Extracting ROI:",roi_temp)
-                img_roi=img.copy(roi=roi_temp,copy_to_fb=True)
-            else: img_roi=img
+            img_roi = img if (not cfg.USE_ROI) else img.copy(roi=roi_temp,copy_to_fb=True)
 
             if(cfg.FRAME_DIFF_ENABLED):
                 # Process the frame using the frame differencer
-                img_roi, triggered, blobs_filt = frame_differencer.process_frame(img_roi)
+                img_roi, triggered, blobs = frame_differencer.process_frame(img_roi)
 
                 if (triggered):
-                    print(len(blobs_filt),"blob(s) within range!")
+                    print(len(blobs),"blob(s) within range!")
 
-                for blob in blobs_filt:
+                for blob in blobs:
                     color_statistics = img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
                     #optional marking of blobs
                     if (cfg.INDICATORS_ENBLED):
@@ -270,101 +265,31 @@ while(True):
                         #saving extracted blob rectangles/squares
                         if (cfg.BLOBS_EXPORT_METHOD!="none"):
                             #optional: turn on LED while saving blob bounding boxes
-                            if (cfg.INDICATORS_ENBLED):
-                                LED_GREEN_ON()
+                            if (cfg.INDICATORS_ENBLED): LED_GREEN_ON()
                             print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
-                            img_blob.save("/jpegs/blobs/" + str(imagelog.picture_count) + "_d" + str(detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
+                            img_blob.save("jpegs/blobs/" + str(imagelog.picture_count) + "_d" + str(detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
                             if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
                         if (cfg.CLASSIFY_MODE == "blobs"):
-                            #optional: turn on LED while classifying
-                            if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
-                            #rescale blob rectangle
-                            img_blob_resized=img_blob.copy(x_size=cfg.MODEL_RES,y_size=cfg.MODEL_RES,copy_to_fb=True,hint=image.BICUBIC)
-                            # we do not need a loop since we do not analyse blob subsets
-                            obj = tf.classify(cfg.NET_PATH, img_blob_resized)[0]
-                            predictions_list = list(zip(labels, obj.output()))
-                            print("Predictions for classified blob:", predictions_list)
 
-                            detectionlog.append(labels=labels, confidences=obj.output(), rect=blob.rect(), prepend_comma=True)
-
-                            if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
-
+                            output = classifier.classify(img_blob, cfg.CLASSIFY_MODE)
+                            detectionlog.append(imagelog.picture_count, labels=classifier.labels, 
+                                                confidences=output, rect=blob.rect(), prepend_comma=True)
                     #go to next loop if only first blob is needed
                     if (cfg.BLOB_TASK == "stop"):
                         break
-            #if frame differencing is disabled, every image is considered triggered and counted outside live view mode
-            elif (cfg.MODE != Mode.LIVE_VIEW):
-                triggered = True
+            
             #log roi image data, possibly classify and save image
-            if(triggered):
+            if(triggered or cfg.MODE != Mode.LIVE_VIEW):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
                 #save image log
                 if (cfg.MODE != Mode.LIVE_VIEW):
-                    if (not cfg.USE_ROI):
-                        imagelog.append(picture_time, clock.fps())
-                    else:
-                        imagelog.append(picture_time, clock.fps(), roi_temp)
+                    imagelog.append(picture_time, clock.fps(), roi_temp)
                 # init detection confidence variable
                 detection_confidence = 0
                 #classify image
-                if(cfg.CLASSIFY_MODE=="image"):
-                    if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
-                    print("Running image classification on ROI...")
-                    detected = False
+                if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):
                     #revert image_roi replacement to get original image for classification
-                    if cfg.FRAME_DIFF_ENABLED: frame_differencer.restore_original_image(img_roi)
-                    #only analyse when classification is feasible within reasonable time frame
-                    if (cfg.MIN_IMAGE_SCALE >= cfg.THRESHOLD_IMAGE_SCALE_DEFER):
-                        print("Classifying ROI or image...")
-                        #rescale image to get better model results
-                        img_net=img_roi.copy(x_size=cfg.MODEL_RES,y_size=cfg.MODEL_RES,copy_to_fb=True,hint=image.BICUBIC)
-                        #start image classification
-                        for obj in tf.classify(cfg.NET_PATH, img_roi, min_scale=cfg.MIN_IMAGE_SCALE, scale_mul=0.5, x_overlap=0.5, y_overlap=0.5):
-                            #initialise threshold check
-                            threshold_exceeded =  False
-                            #put predictions in readable format
-                            predictions_list = list(zip(labels, obj.output()))
-                            print("Predictions at [x=%d,y=%d,w=%d,h=%d]" % obj.rect(),":")
-                            #check threshold for each target item
-                            for i in range(len(predictions_list)):
-                                print("%s = %f" % (predictions_list[i][0], predictions_list[i][1]))
-                                if (i == non_target_indices): continue
-                                if (predictions_list[i][1] > cfg.THRESHOLD_CONFIDENCE):
-                                        threshold_exceeded =  True
-                            #log model scores if any target is above threshold
-                            if(threshold_exceeded):
-                                detected = True
-                                print("Detected target! Logging detection...")
-                                #logging detection
-                                detectionlog.append(imagelog.picture_count, labels=labels, confidences=obj.output(), rect=roi_temp)
-
-                    if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
-                #object detection. not compatible with ROI mode
-                if(cfg.CLASSIFY_MODE=="objects" and not cfg.USE_ROI):
-                    if cfg.INDICATORS_ENBLED: LED_YELLOW_ON()
-                    print("Running object detection on ROI...")
-                    detected = False
-                    #revert image_roi replacement to get original image for classification
-                    if cfg.FRAME_DIFF_ENABLED: frame_differencer.restore_original_image(img_roi)
-                    #loop through labels
-                    for i, detection_list in enumerate(tf.detect(cfg.NET_PATH,img_roi, thresholds=[(math.ceil(cfg.THRESHOLD_CONFIDENCE * 255), 255)])):
-                        if (i == 0): continue # background class
-                        if (len(detection_list) == 0): continue # no detections for this class?
-                        detected = True
-                        print("********** %s **********" % labels[i])
-                        #print([j for m in detection_list for j in m])
-                        print("whole list",detection_list)
-                        for d in detection_list:
-                            if(detection_confidence < d[4]): detection_confidence = d[4]
-                            [x, y, w, h] = d.rect()
-                            
-                            #optional: display bounding box
-                            if (cfg.INDICATORS_ENBLED):
-                                img.draw_rectangle(d.rect(), color=cfg.CLASS_COLORS[i+1], thickness=2)
-                            
-                            detectionlog.append(imagelog.picture_count, labels=labels[i], confidences=d[4], rect=d.rect())
-                            
-                    if cfg.INDICATORS_ENBLED: LED_YELLOW_OFF()
-                elif(cfg.CLASSIFY_MODE=="objects" and cfg.USE_ROI): print("Object detection skipped, as it is not compatible with using ROIs!")
+                    if cfg.FRAME_DIFF_ENABLED: frame_differencer.restore_original_image(img_roi)     
+                    detected, detection_confidence = classifier.classify(img_roi, cfg.CLASSIFY_MODE, roi_rect=roi_temp)
 
                 # saving picture
                 if(cfg.SAVE_ROI_MODE == "all" or cfg.SAVE_ROI_MODE == "trigger" or (cfg.SAVE_ROI_MODE == "detect" and detected)):
@@ -375,6 +300,7 @@ while(True):
                     # Save picture with detection ID
                     img_roi.save(str(session.path)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(imagelog.picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
                     if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
+               
                 # copy and save compressed image to send it over wifi later
                 if(wifi_enabled and cfg.UPLOAD_IMAGE_ENABLED and detection_confidence >= cfg.UPLOAD_CONFIDENCE_THRESHOLD):
                     print("Original image size :", img.size()/1024,"kB")
