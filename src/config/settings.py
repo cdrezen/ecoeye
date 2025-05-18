@@ -38,7 +38,7 @@ SENSOR_PIXFORMAT = sensor.RGB565
 #whether to digitally zoom into image
 USE_SENSOR_WINDOWING = False
 #introduce delay between pictures (seconds). Otherwise with a delay of 0, the camera runs at maximum speed
-picture_delay_s = 0 if MODE != Mode.DEPLOY else 0
+PICTURE_DELAY_S = 0 if MODE != Mode.DEPLOY else 0
 #threshold above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
 SLEEP_THRESHOLD_S = 10
 #for saving whole images or regions of interest (ROIs). Options:

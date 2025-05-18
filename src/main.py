@@ -9,7 +9,7 @@ import sensor, image, time, os, tf, pyb, machine, sys, gc, math
 from pyb import Pin, Timer
 # import external functions
 from ecofunctions import *
-from hardware.voltage_divider import vdiv_build, is_battery_low
+from hardware.power import PowerManagement, vdiv_build, is_battery_low
 from hardware.led import *
 from timeutil import Suntime, Rtc
 from logging.session import Session
@@ -18,9 +18,6 @@ from vision.frame_differencer import FrameDifferencer
 from vision.classifier import Classifier
 
 
-AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
-# create voltage divider class instance
-vdiv_bat = vdiv_build()
 # initialise time objects & print date and time from set or updated RTC
 solartime = Suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
 rtc = Rtc()
@@ -29,6 +26,7 @@ last_exposure = 0
 illumination = Illumination()
 camera = Camera()
 session: Session = None
+power_mgmt: PowerManagement = None
 picture_count, detection_count = 0, 0
 imagelog, detectionlog = None, None
 is_night = not solartime.is_daytime()
@@ -47,17 +45,6 @@ clock = None
 # Frame differencing handler
 frame_differencer: FrameDifferencer = None
 classifier: Classifier = None
-
-def check_battery_sleep(vbat=None, print_status=""):
-    # check voltage and save status, if battery too low -> sleep until sunrise
-    if(vbat == None):
-        vbat = vdiv_bat.read_voltage()
-    if(print_status != ""):
-        session.log_status(vbat, print_status)
-    if is_battery_low(vbat):
-        session.save()
-        session.log_status(vbat, "Battery low - Sleeping")
-        indicator_dsleep(solartime.time_until_sunrise() + AFTER_SUNRISE_DELAY, cfg.ACTIVE_LED_INTERVAL_MS)
 
 def process_blobs(blobs, frame: Frame):
 
@@ -89,7 +76,7 @@ def process_blobs(blobs, frame: Frame):
 
 def init():
     global start_time_status_ms, start_time_blending_ms, start_time_active_LED_ms, clock
-    global wifi_enabled, session, imagelog, detectionlog, classifier
+    global wifi_enabled, session, imagelog, detectionlog, classifier, power_mgmt
     
     # perform quick start from sleep check
     start_check()
@@ -100,15 +87,19 @@ def init():
     if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
         session = Session.load()
         if not session: session = Session.create(rtc)
-        check_battery_sleep(print_status="Script start - Waking")
-
+        print_status="Script start - Waking"
     # create and initialize new folders only on powerup or soft reset
-    if (machine.reset_cause() != machine.DEEPSLEEP_RESET and cfg.MODE != Mode.LIVE_VIEW):
+    elif (cfg.MODE != Mode.LIVE_VIEW):
         # create necessary files & folders
         session = Session.create(rtc)
-        check_battery_sleep(print_status="Script start - Initialising")
+        print_status="Script start - Initialising"
+    else:
+        print_status="Script start - Live view"
 
+    power_mgmt = PowerManagement(illumination, session)
     imagelog, detectionlog = session.imagelog, session.detectionlog
+
+    power_mgmt.update(solartime, print_status)
 
     #import mobilenet model and labels
     if(cfg.CLASSIFY_MODE != "none"):
@@ -119,7 +110,6 @@ def init():
 
     camera.initialize(illumination, cfg.SENSOR_PIXFORMAT, cfg.SENSOR_FRAMESIZE,
                        cfg.WIN_RECT, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
-
 
     #start counting time
     start_time_status_ms = pyb.millis()
@@ -145,26 +135,22 @@ while(True):
 
     # go to deep sleep when not operation time
     if(not solartime.is_operation_time()):
-        # outside of operation time
         print("Outside operation time - current time:",time.localtime()[0:6])
-        # before deep sleep, turn off illumination LEDs if on
         illumination.off("before deep sleep")
-        #deferred analysis of images when scale is too small (not working yet)
-        # TODO: re-implement deferred analysis
         if(cfg.MIN_IMAGE_SCALE < cfg.THRESHOLD_IMAGE_SCALE_DEFER):
+            #deferred analysis of images when scale is too small (not working yet)
             print("Starting deferred analysis of images before sleeping...")
             # deferred_analysis(cfg.NET_PATH, cfg.MIN_IMAGE_SCALE, predictions_list)
+            # TODO: re-implement deferred analysis
 
         #compute time until wake-up
         if (cfg.TIME_COVERAGE == "day"):
             sleep_time = solartime.time_until_sunrise()
-        if (cfg.TIME_COVERAGE == "night"):
+        elif (cfg.TIME_COVERAGE == "night"):
             sleep_time = solartime.time_until_sunset()
         session.save()
-        session.log_status(vbat, "Outside operation time - Sleeping")
+        session.log_status(power_mgmt.get_battery_voltage(), "Outside operation time - Sleeping")
         indicator_dsleep(sleep_time, cfg.ACTIVE_LED_INTERVAL_MS)
-
-    # continue script when operation time
     
     clock.tick()
     # update night time check
@@ -176,16 +162,8 @@ while(True):
     #log status and battery voltage (if possible) every period
     if (pyb.elapsed_millis(start_time_status_ms) > cfg.LOG_STATUS_PERIOD_MS):
         start_time_status_ms = pyb.millis()
-        print("Updated time (Y,M,D):",rtc.datetime()[0:3],"and time (H,M,S):",rtc.datetime()[4:7])
-        # turn on OFF LED module during voltage reading
-        illumination.off(message="during voltage reading")
-        # check voltage and save status, if battery too low -> sleep until sunrise
-        vbat = vdiv_bat.read_voltage()
-        check_battery_sleep(vbat=vbat)
-        session.log_status(vbat, "Script running - Normal operation")
-        # at night, turn ON selected illumination LEDs if always ON mode
-        if(illumination.can_turn_on(is_night)):
-            illumination.on(message="after voltage reading")
+        print_status=f"Script running - timed check (Y,M,D) {rtc.datetime()[0:3]} - (H,M,S) {rtc.datetime()[4:7]}"
+        power_mgmt.update(solartime, print_status)
 
     #blink LED every period
     if (pyb.elapsed_millis(start_time_active_LED_ms) > cfg.ACTIVE_LED_INTERVAL_MS):
@@ -245,10 +223,9 @@ while(True):
                 if(cfg.SAVE_ROI_MODE == "all" or cfg.SAVE_ROI_MODE == "trigger" or (cfg.SAVE_ROI_MODE == "detect" and detected)):
                     print("Saving ROI or whole image...")
                     if cfg.INDICATORS_ENBLED: LED_GREEN_ON()
-                    #revert image_roi replacement to get original image for classification
-                    if (cfg.FRAME_DIFF_ENABLED): frame.img.replace(frame_differencer.get_original_image())
-                    # Save picture with detection ID
-                    frame.save(str(session.path)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(imagelog.picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
+                    if (cfg.FRAME_DIFF_ENABLED): #revert image_roi replacement to get original image for classification
+                        frame.img.replace(frame_differencer.get_original_image())
+                    frame.save("jpegs/"+ str('_'.join(map(str,roi_temp))), quality=cfg.JPEG_QUALITY)
                     if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
                
                 # copy and save compressed image to send it over wifi later
@@ -281,7 +258,7 @@ while(True):
 
     #if cfg.INDICATORS_ENBLED: print("Frame buffers:",sensor.get_framebuffers())
     #delay loop execution to control frame rate
-    pic_delay = cfg.picture_delay_s
+    pic_delay = cfg.PICTURE_DELAY_S
 
     if (pic_delay > 0 and pic_delay < cfg.SLEEP_THRESHOLD_S):
         print("Delaying frame capture for",pic_delay,"seconds...")
@@ -292,11 +269,9 @@ while(True):
         illumination.off(no_cooldown=True, message="before deep sleep")
         # save variables and log status before going ot sleep
         session.save()
-        session.log_status(vbat, "Delay loop - Sleeping")
+        session.log_status(power_mgmt.get_battery_voltage(), "Delay loop - Sleeping")
         # go to sleep until next picture with blinking indicator
         indicator_dsleep(pic_delay*1000,cfg.ACTIVE_LED_INTERVAL_MS)
 
         # (when light sleep is used) check voltage and save status, if battery too low -> sleep until sunrise
-        vbat = vdiv_bat.read_voltage()
-        check_battery_sleep(vbat=vbat)
-        session.log_status(vbat, "Delay loop - Waking")
+        power_mgmt.update(solartime, "Delay loop - Waking")

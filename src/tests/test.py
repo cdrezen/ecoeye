@@ -1,7 +1,7 @@
 import config.settings as cfg
 
 ### test voltage divider
-from hardware.voltage_divider import vdiv_build
+from hardware.power import vdiv_build
 vbat = vdiv_build()
 print(vbat.read_voltage())
 if cfg.VOLTAGE_DIV_AVAILABLE == False:
