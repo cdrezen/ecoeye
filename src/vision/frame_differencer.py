@@ -149,7 +149,8 @@ class FrameDifferencer:
     def get_reference_image(self):
         """Return the reference image framebuffer"""
         return self.img_ref_fb
-        
+    
+    @DeprecationWarning
     def mark_blobs(self, img, blobs):
         """
         Draw markers around detected blobs
@@ -161,7 +162,8 @@ class FrameDifferencer:
         for blob in blobs:
             img.draw_edges(blob.corners(), color=(0,0,255), thickness=5)
             img.draw_rectangle(blob.rect(), color=(255,0,0), thickness=5)
-            
+    
+    @DeprecationWarning
     def extract_blob_region(self, blob):
         """
         Extract the region of interest around a blob based on user parameters

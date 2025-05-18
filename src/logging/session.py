@@ -5,6 +5,7 @@ import json
 from logging.csv import Csv
 from logging.detection_logger import DetectionLogger
 from logging.image_logger import ImageLogger
+from vision.frame import Frame
 
 
 class Session:
@@ -104,6 +105,7 @@ class Session:
             os.chdir(self.path)
             self.detectionlog = DetectionLogger(self.DETECTIONLOG_FILENAME, detection_count)
             self.imagelog = ImageLogger(self.IMAGELOG_FILENAME, picture_count)
+            Frame.set_starting_id(picture_count)
             self.statuslog = Csv(self.STATUSLOG_FILENAME, "date_time", "status", "battery_voltage", 
                                 "USB_connected", "core_temperature_C")
             

@@ -1,5 +1,6 @@
 import sensor
 from util.rect import Rect
+from vision.frame import BlobExportShape
 
 class Mode:
     """
