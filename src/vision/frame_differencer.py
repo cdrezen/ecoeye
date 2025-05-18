@@ -3,6 +3,7 @@
 import sensor, image
 import config.settings as cfg
 from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
+from vision.frame import Frame
 
 class FrameDifferencer:
     """
@@ -37,7 +38,7 @@ class FrameDifferencer:
         self.img_ref_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
         self.img_ori_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
     
-    def save_reference_image(self, img, picture_time):
+    def save_reference_image(self, frame: Frame):
         """
         Save the current image as the reference image
         
@@ -49,18 +50,10 @@ class FrameDifferencer:
             picture_time: Time when the picture was taken
         """
         # Store the image as reference
-        self.img_ref_fb.replace(img)
-        
-        # Log reference image data
-        self.imagelog.append(picture_time, 
-                        sensor.get_exposure_us(), sensor.get_gain_db(), 
-                        "NA", "reference")
-        
-        # Save reference image to disk
-        self.img_ref_fb.save(f"/jpegs/reference/{self.imagelog.picture_count}_reference.jpg",
-                            quality=cfg.JPEG_QUALITY)
+        self.img_ref_fb.replace(frame.img)
+        frame.save_and_log("reference", self.imagelog)
     
-    def blend_background(self, img, picture_time, fps):
+    def blend_background(self, frame: Frame):
         """
         Blend the new image into the background reference
         
@@ -82,14 +75,11 @@ class FrameDifferencer:
 
         if cfg.INDICATORS_ENBLED: LED_CYAN_OFF()
 
-        
         # Save reference image to disk
-        self.imagelog.append(picture_time, sensor.get_exposure_us(), sensor.get_gain_db(), fps, "reference")
-        self.img_ref_fb.save("jpegs/reference/"+str(self.imagelog.picture_count)+"_reference.jpg",
-                    quality=cfg.JPEG_QUALITY)
+        frame.save_and_log("reference", self.imagelog)
+
         
-    
-    def process_frame(self, img: image.Image):
+    def process_frame(self, frame: Frame):
         """
         Process a frame for motion detection with frame differencing.
         
@@ -102,18 +92,17 @@ class FrameDifferencer:
             blobs: List of detected blobs that triggered detection
         """
         # Save original image
-        self.img_ori_fb.replace(img)
+        self.img_ori_fb.replace(frame.img)
         
         # Compute absolute frame difference
-        img.difference(self.img_ref_fb)
+        frame.img.difference(self.img_ref_fb)
         
-        # Default to no trigger
         triggered = False
         blobs_filt = []
         
         try:
             # Find blobs in the difference image
-            blobs = img.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert=True, merge=False, pixels_threshold=cfg.MIN_BLOB_PIXELS)
+            blobs = frame.img.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert=True, merge=False, pixels_threshold=cfg.MIN_BLOB_PIXELS)
             
             # Filter blobs with maximum pixels condition
             blobs_filt = [item for item in blobs if item[4] < cfg.MAX_BLOB_PIXELS]
@@ -127,21 +116,8 @@ class FrameDifferencer:
             triggered = True
             print("Memory error in blob detection - assuming triggered")
             
-        return img, triggered, blobs_filt
+        return frame, triggered, blobs_filt
     
-    def restore_original_image(self, img):
-        """
-        Restore the original image (before difference operation)
-        
-        Args:
-            img: Image to restore
-            
-        Returns:
-            The restored original image
-        """
-        img.replace(self.img_ori_fb)
-        return img
-        
     def get_original_image(self):
         """Return the original image framebuffer"""
         return self.img_ori_fb

@@ -4,6 +4,7 @@
 import config.settings as cfg
 from config.settings import Mode
 #import libraries
+from hardware.camera import Camera
 import sensor, image, time, os, tf, pyb, machine, sys, gc, math
 from pyb import Pin, Timer
 # import external functions
@@ -12,6 +13,7 @@ from hardware.voltage_divider import vdiv_build, is_battery_low
 from hardware.led import *
 from timeutil import Suntime, Rtc
 from logging.session import Session
+from vision.frame import Frame
 from vision.frame_differencer import FrameDifferencer
 from vision.classifier import Classifier
 
@@ -25,6 +27,7 @@ rtc = Rtc()
 exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [1]
 last_exposure = 0
 illumination = Illumination()
+camera = Camera()
 session: Session = None
 picture_count, detection_count = 0, 0
 imagelog, detectionlog = None, None
@@ -56,36 +59,33 @@ def check_battery_sleep(vbat=None, print_status=""):
         session.log_status(vbat, "Battery low - Sleeping")
         indicator_dsleep(solartime.time_until_sunrise() + AFTER_SUNRISE_DELAY, cfg.ACTIVE_LED_INTERVAL_MS)
 
-def take_picture(do_expose, exposure_mult = None):
-    global last_exposure
-    last_exposure = sensor.get_exposure_us()
+def process_blobs(blobs, frame: Frame):
 
-    if (exposure_mult != None):#cfg.USE_EXPOSURE_BRACKETING
-        #fix the gain so image is stable
-        sensor.set_auto_gain(False, gain_db=sensor.get_gain_db())
-        print("Exposure bracketing bias:",exposure_mult)
-        sensor.set_auto_exposure(False, exposure_us=int(last_exposure*exposure_mult))
-        #wait for new exposure time to be applied
-        sensor.skip_frames(time = 2000)
+    nb_blobs_to_process = len(blobs) if cfg.MAX_BLOB_TO_PROCESS == -1 else min(cfg.MAX_BLOB_TO_PROCESS, len(blobs))
 
-    # at night, turn ON selected illumination LEDs if not always OFF mode
-    if(illumination.can_turn_on(is_night)):
-        illumination.on(message="to take the picture")
+    for i in range(nb_blobs_to_process):
+        blob = blobs[i]
+        color_statistics = frame.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
+        #optional marking of blobs
+        if (cfg.INDICATORS_ENBLED):
+            frame.mark_blob(blob)
+        
+        #log each detected blob, we finish the CSV line here if not classifying
+        detectionlog.append(frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
 
-    if (do_expose):
-        expose(cfg.EXPOSURE_MODE, cfg.EXPOSURE_BIAS_DAY, cfg.EXPOSURE_BIAS_NIGHT,
-                cfg.GAIN_BIAS, cfg.EXPOSURE_MS, cfg.GAIN_DB, is_night)
-    
-    img = sensor.snapshot()
+        if not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
+            continue
 
-    # after picture, turn OFF selected illumination LEDs if not always ON mode
-    if (illumination.can_turn_off()): 
-        illumination.off(message="to save power...")
+        blob_rect, img_blob = frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
 
-    #log time
-    picture_time = "-".join(map(str,time.localtime()[0:6]))
+        if (cfg.BLOBS_EXPORT_METHOD!="none"):
+            if (cfg.INDICATORS_ENBLED): LED_GREEN_ON()
+            frame.save("blobs", str(frame.id) + "_d" + str(detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))))
+            if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
+        if (cfg.CLASSIFY_MODE == "blobs"):
+            output = classifier.classify(img_blob, cfg.CLASSIFY_MODE)
+            detectionlog.append(frame.id, labels=classifier.labels,  confidences=output, rect=blob.rect(), prepend_comma=True)
 
-    return img, picture_time
 
 def init():
     global start_time_status_ms, start_time_blending_ms, start_time_active_LED_ms, clock
@@ -117,48 +117,25 @@ def init():
     # verify that wifi shield is connected when wifi is enabled
     wifi_enabled = cfg.WIFI_ENABLED and wifishield_isconnnected()
 
-    ### SENSOR INIT ###
+    camera.initialize(illumination, cfg.SENSOR_PIXFORMAT, cfg.SENSOR_FRAMESIZE,
+                       cfg.WIN_RECT, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
 
-    #indicate initialisation with LED
-    LED_WHITE_BLINK(200,3)
-    # Reset and initialize the sensor
-    sensor.reset()
-    #we need RGB565 for frame differencing and MobileNet
-    sensor_pixformat = cfg.SENSOR_PIXFORMAT
-    windowing = cfg.WIN_RECT
-    
-    sensor.set_pixformat(sensor_pixformat)
-    sensor.set_framesize(cfg.SENSOR_FRAMESIZE)
-
-    if (cfg.USE_SENSOR_WINDOWING):
-        sensor.set_windowing((windowing.x, windowing.y, windowing.w, windowing.h))
-
-    if (cfg.USE_SENSOR_FRAMEBUFFERS): 
-        sensor.set_framebuffers(cfg.NB_SENSOR_FRAMEBUFFERS)
-
-    # Give the camera sensor time to adjust
-    sensor.skip_frames(time=1000)
-
-    #parameter validity checks
-    if (windowing.y + windowing.h > sensor.height() or windowing.x + windowing.w > sensor.width()):
-        print("windowing_y:", windowing.y, "windowing_h:", windowing.h, "sensor.height:", sensor.height())
-        print("windowing_x:", windowing.x, "windowing_w:", windowing.w, "sensor.width:", sensor.width())
-        sys.exit("Windowing dim exceeds image dim!")
-
-    #Frame buffer memory management
-    if(cfg.FRAME_DIFF_ENABLED):
-        # Initialize the frame differencer
-        frame_differencer = FrameDifferencer(image_width, image_height, sensor_pixformat, imagelog)
-        img, picture_time = take_picture(do_expose=True)
-        frame_differencer.save_reference_image(img, picture_time)
-
-        print("Saved background image - now frame differencing!")
 
     #start counting time
     start_time_status_ms = pyb.millis()
     start_time_blending_ms = pyb.millis()
     start_time_active_LED_ms = pyb.millis()
     clock = time.clock()
+
+    #Frame buffer memory management
+    if(cfg.FRAME_DIFF_ENABLED):
+        # Initialize the frame differencer
+        frame_differencer = FrameDifferencer(image_width, image_height, cfg.SENSOR_PIXFORMAT, imagelog)
+        frame = camera.take_picture(solartime.is_daytime(), clock, image_type="reference")
+        frame_differencer.save_reference_image(frame)
+
+        print("Saved background image - now frame differencing!")
+
     return
 
 init()
@@ -225,8 +202,8 @@ while(True):
         if (cfg.FRAME_DIFF_ENABLED):
             print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(start_time_blending_ms)/1000)),"seconds")
             #take new picture
-            img, picture_time = take_picture(do_expose=True)
-            frame_differencer.blend_background(img, picture_time, clock.fps())
+            frame = camera.take_picture(is_night, clock)
+            frame_differencer.blend_background(frame)
             
         #reset blending time counter
         start_time_blending_ms = pyb.millis()
@@ -235,75 +212,49 @@ while(True):
     #loop over exposure values
     for exposure_mult in exposure_values:
 
-        img, picture_time = take_picture(do_expose=False, exposure_mult=exposure_mult)
+        frame = camera.take_picture(is_night, clock, exposure_mult=exposure_mult)
 
         #start cycling over ROIs
         # cfg.ROIS_RECT) length==1 if cfg.USE_ROI==False
         for roi_temp in cfg.ROI_RECTS:
-            img_roi = img if (not cfg.USE_ROI) else img.copy(roi=roi_temp,copy_to_fb=True)
+            if (cfg.USE_ROI):
+                frame = frame.copy(roi=roi_temp,copy_to_fb=True)
 
             if(cfg.FRAME_DIFF_ENABLED):
                 # Process the frame using the frame differencer
-                img_roi, triggered, blobs = frame_differencer.process_frame(img_roi)
-
+                frame, triggered, blobs = frame_differencer.process_frame(frame)
                 if (triggered):
                     print(len(blobs),"blob(s) within range!")
-
-                for blob in blobs:
-                    color_statistics = img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
-                    #optional marking of blobs
-                    if (cfg.INDICATORS_ENBLED):
-                        frame_differencer.mark_blobs(img, [blob])
-                    
-                    #log each detected blob
-                    detectionlog.append(imagelog.picture_count, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
-                                        #we finish the CSV line here if not classifying
-
-                    if (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
-                        # Extract blob region using frame differencer
-                        blob_rect, img_blob = frame_differencer.extract_blob_region(blob)
-                        
-                    if (cfg.BLOBS_EXPORT_METHOD!="none"):
-                        #saving extracted blob rectangles/squares
-                        if (cfg.INDICATORS_ENBLED): LED_GREEN_ON()
-                        print("Exporting blob bounding", cfg.BLOBS_EXPORT_METHOD, "...")
-                        img_blob.save("jpegs/blobs/" + str(imagelog.picture_count) + "_d" + str(detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))) + ".jpg",quality=cfg.JPEG_QUALITY)
-                        if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
-                    if (cfg.CLASSIFY_MODE == "blobs"):
-                        output = classifier.classify(img_blob, cfg.CLASSIFY_MODE)
-                        detectionlog.append(imagelog.picture_count, labels=classifier.labels, 
-                                            confidences=output, rect=blob.rect(), prepend_comma=True)
-                    #go to next loop if only first blob is needed
-                    if (cfg.BLOB_TASK == "stop"):
-                        break
+                    process_blobs(blobs, frame)
             
             #log roi image data, possibly classify and save image
             if(triggered or cfg.MODE != Mode.LIVE_VIEW):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
-                #save image log
+
                 if (cfg.MODE != Mode.LIVE_VIEW):
-                    imagelog.append(picture_time, clock.fps(), roi_temp)
-                # init detection confidence variable
+                    frame.log(imagelog)
+                
                 detection_confidence = 0
+                
                 #classify image
                 if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):
                     #revert image_roi replacement to get original image for classification
-                    if cfg.FRAME_DIFF_ENABLED: frame_differencer.restore_original_image(img_roi)     
-                    detected, detection_confidence = classifier.classify(img_roi, cfg.CLASSIFY_MODE, roi_rect=roi_temp)
+                    if cfg.FRAME_DIFF_ENABLED: frame.img.replace(frame_differencer.get_original_image()) 
+                    detected, detection_confidence = classifier.classify(frame.img, cfg.CLASSIFY_MODE, roi_rect=roi_temp)
 
                 # saving picture
                 if(cfg.SAVE_ROI_MODE == "all" or cfg.SAVE_ROI_MODE == "trigger" or (cfg.SAVE_ROI_MODE == "detect" and detected)):
                     print("Saving ROI or whole image...")
                     if cfg.INDICATORS_ENBLED: LED_GREEN_ON()
                     #revert image_roi replacement to get original image for classification
-                    if (cfg.FRAME_DIFF_ENABLED): frame_differencer.restore_original_image(img_roi)
+                    if (cfg.FRAME_DIFF_ENABLED): frame.img.replace(frame_differencer.get_original_image())
                     # Save picture with detection ID
-                    img_roi.save(str(session.path)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(imagelog.picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
+                    frame.save(str(session.path)+"/jpegs/"+ str('_'.join(map(str,roi_temp))) + "/" + str(imagelog.picture_count) + ".jpg",quality=cfg.JPEG_QUALITY)
                     if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
                
                 # copy and save compressed image to send it over wifi later
                 if(wifi_enabled and cfg.UPLOAD_IMAGE_ENABLED and detection_confidence >= cfg.UPLOAD_CONFIDENCE_THRESHOLD):
-                    print("Original image size :", img.size()/1024,"kB")
-                    cp_img = img.copy(x_scale=0.1,y_scale=0.1,copy_to_fb=True,hint=image.BICUBIC)
+                    print("Original image size :", frame.img.size()/1024,"kB")
+                    cp_img = frame.img.copy(x_scale=0.1,y_scale=0.1,copy_to_fb=True,hint=image.BICUBIC)
                     print("Size of image for WiFi transfer :", cp_img.size()/1024,"kB")
                     cp_img.save("cp_img.jpg",quality=cfg.JPEG_QUALITY)
                     
@@ -311,24 +262,7 @@ while(True):
     
     #turn auto image adjustments back on if bracketing
     if (cfg.USE_EXPOSURE_BRACKETING):
-        if(cfg.EXPOSURE_MODE=="auto"):
-            #auto gain and exposure
-            sensor.set_auto_gain(True)
-            sensor.set_auto_exposure(True)
-            #wait for auto-adjustment
-            sensor.skip_frames(time = 2000)
-        elif(cfg.EXPOSURE_MODE=="exposure"):
-            #auto gain
-            sensor.set_auto_gain(True)
-            #wait for auto-adjustment
-            sensor.skip_frames(time = 2000)
-        elif(cfg.EXPOSURE_MODE=="bias"):
-            exposure_bias = cfg.EXPOSURE_BIAS_NIGHT if is_night else cfg.EXPOSURE_BIAS_DAY
-            # re-set exposure
-            sensor.set_auto_exposure(False, \
-                exposure_us = int(last_exposure))
-            #wait for auto-adjustment
-            sensor.skip_frames(time = 2000)
+        camera.reset_exposure()
 
     # send detection data over wifi
     if(wifi_enabled and detected):

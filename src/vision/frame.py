@@ -1,3 +1,4 @@
+from typing import List, Tuple
 import image
 from time import struct_time
 from logging.image_logger import ImageLoggerA
@@ -62,16 +63,25 @@ class Frame():
     #     obj.__class__ = cls
     #     obj._init_identification()
     #     return obj
+
+    def copy(self, x_scale:float=1.0, y_scale:float=1.0, roi:Tuple[int,int,int,int]|None=None, rgb_channel:int=-1, alpha:int=256, color_palette=None, alpha_palette=None, hint:int=0, copy_to_fb:float=False):
+        img_copy = self.img.copy(x_scale=x_scale, y_scale=y_scale, roi=roi, rgb_channel=rgb_channel, alpha=alpha, color_palette=color_palette, alpha_palette=alpha_palette, hint=hint, copy_to_fb=copy_to_fb)
+        return Frame(img_copy, self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, self.roi_rect)
     
-    def save(self, foldername: str):
-        path = f"{Frame.BASE_PATH}{foldername}/{self.id}.jpg"
+    def get_stats(self, thresholds:List[Tuple[int,int]]|None=None, invert=False, roi:Tuple[int,int,int,int]|None=None, bins=256, l_bins=256, a_bins=256, b_bins=256, difference:image.Image|None=None):
+        return self.img.get_stats(thresholds=thresholds, invert=invert, roi=roi, bins=bins, l_bins=l_bins, a_bins=a_bins, b_bins=b_bins, difference=difference)
+    
+    def save(self, foldername: str, filename: str = None):
+        if not filename:
+            filename = str(self.id)
+        path = f"{Frame.BASE_PATH}{foldername}/{filename}.jpg"
         self.img.save(path)
 
     def log(self, imagelog: ImageLoggerA):
         imagelog.append(self.id, self.capture_time, self.fps, self.image_type, self.roi_rect)
 
-    def save_and_log(self, foldername: str, imagelog: ImageLoggerA):
-        self.save(foldername)
+    def save_and_log(self, foldername: str, imagelog: ImageLoggerA, filename: str = None):
+        self.save(foldername, filename)
         self.log(imagelog)
         
     def mark_blob(self, blob: image.Blob, thickness: int = 5, edge_color=colors.BLUE, rect_color=colors.RED):

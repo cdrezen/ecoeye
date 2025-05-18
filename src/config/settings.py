@@ -119,9 +119,9 @@ LED_MODULE_COOLDOWN_MS = 0
 FRAME_DIFF_ENABLED = False if MODE != Mode.DEPLOY else False
 # _____ FD enabled only parameters _____
 #action for blobs. options:
-#stop: stop detecting blobs after the first one
-#log: log all blobs in detections file
-BLOB_TASK = "log"
+# x: stop processing blobs after the x one
+#-1: log all blobs in detections file
+MAX_BLOB_TO_PROCESS=-1
 #sensitivity of the blob detection, as measured by the area (number of pixels) of the blobs. Blobs outside this min-max range will not be logged.
 #Blob areas can be estimated by drawing rectangular selections on the image preview with the mouse; the area will be displayed below
 MIN_BLOB_PIXELS = 3000
