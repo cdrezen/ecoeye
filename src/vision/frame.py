@@ -1,7 +1,7 @@
 from typing import List, Tuple
 import image
 from time import struct_time
-from logging.image_logger import ImageLoggerA
+from logging.image_logger import ImageLogger
 from util import colors
 
 class BlobExportShape:
@@ -44,10 +44,6 @@ class Frame():
         self.id = Frame.id
         Frame.id += 1
 
-    @property
-    def image(self):
-        return self.img
-
     @staticmethod
     def set_starting_id(id: int):
         """
@@ -69,29 +65,29 @@ class Frame():
         return Frame(img_copy, self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, self.roi_rect)
     
     def get_stats(self, thresholds:List[Tuple[int,int]]|None=None, invert=False, roi:Tuple[int,int,int,int]|None=None, bins=256, l_bins=256, a_bins=256, b_bins=256, difference:image.Image|None=None):
-        return self.img.get_stats(thresholds=thresholds, invert=invert, roi=roi, bins=bins, l_bins=l_bins, a_bins=a_bins, b_bins=b_bins, difference=difference)
+        return self.img.get_statistics(thresholds=thresholds, invert=invert, roi=roi, bins=bins, l_bins=l_bins, a_bins=a_bins, b_bins=b_bins, difference=difference)
     
-    def save(self, foldername: str, filename: str = None):
+    def save(self, foldername: str, filename: str = ""):
         if not filename:
             filename = str(self.id)
         path = f"{Frame.BASE_PATH}{foldername}/{filename}.jpg"
         self.img.save(path)
 
-    def log(self, imagelog: ImageLoggerA):
-        imagelog.append(self.id, self.capture_time, self.fps, self.image_type, self.roi_rect)
+    def log(self, imagelog: ImageLogger):
+        imagelog.append(self)
 
-    def save_and_log(self, foldername: str, imagelog: ImageLoggerA, filename: str = None):
+    def save_and_log(self, foldername: str, imagelog: ImageLogger, filename: str = ""):
         self.save(foldername, filename)
         self.log(imagelog)
         
-    def mark_blob(self, blob: image.Blob, thickness: int = 5, edge_color=colors.BLUE, rect_color=colors.RED):
+    def mark_blob(self, blob: image.blob, thickness: int = 5, edge_color=colors.BLUE, rect_color=colors.RED):
         """
         Mark the detected blob on the image with a rectangle and corners.
         :param blob: The detected blob to mark.
         :param thickness: The thickness of the rectangle lines.
         """
-        self.img.draw_edges(blob.corners(), color=edge_color, thickness=thickness)
-        self.img.draw_rectangle(blob.rect(), color=rect_color, thickness=thickness)
+        self.img.draw_edges(self.img, corners=blob.corners(), color=edge_color, thickness=thickness)
+        self.img.draw_rectangle(*blob.rect(), color=rect_color, thickness=thickness)
         return self
     
     def extract_blob_region(self, blob, shape: BlobExportShape = BlobExportShape.RECTANGLE):

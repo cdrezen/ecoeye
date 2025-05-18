@@ -9,6 +9,7 @@ class FrameDifferencer:
     """
     Handles frame differencing functionality for motion detection.
     """
+
     def __init__(self, image_width, image_height, sensor_pixformat, imagelog):
         """
         Initialize the frame differencer with reference and original framebuffers.
@@ -21,8 +22,8 @@ class FrameDifferencer:
         self.image_width = image_width
         self.image_height = image_height
         self.sensor_pixformat = sensor_pixformat
-        self.img_ref_fb = None
-        self.img_ori_fb = None
+        self.img_ref_fb: image.Image
+        self.img_ori_fb: image.Image
         self.imagelog = imagelog
         self.initialize_framebuffers()
         if (cfg.EXPOSURE_MODE=="auto"): 
@@ -105,7 +106,7 @@ class FrameDifferencer:
             blobs = frame.img.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert=True, merge=False, pixels_threshold=cfg.MIN_BLOB_PIXELS)
             
             # Filter blobs with maximum pixels condition
-            blobs_filt = [item for item in blobs if item[4] < cfg.MAX_BLOB_PIXELS]
+            blobs_filt = [b for b in blobs if b.pixels() < cfg.MAX_BLOB_PIXELS]
             
             if len(blobs_filt) > 0:
                 print(f"{len(blobs_filt)} blob(s) within range!")

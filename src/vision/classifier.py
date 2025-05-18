@@ -58,7 +58,9 @@ class Classifier:
         """Classify a single blob image"""
         img_resized = self._rescale_image(img)
         obj = tf.classify(self.net_path, img_resized)[0]
-        return obj.output()
+        output = obj.output()
+        detected = len(output) > 0
+        return detected, obj.output()
 
     def classify_image(self, img, roi_rect=None):
         """Classify using sliding window approach"""
@@ -68,7 +70,7 @@ class Classifier:
         if (cfg.MIN_IMAGE_SCALE < cfg.THRESHOLD_IMAGE_SCALE_DEFER):
             return
             
-        img = self._rescale_image(img, roi_rect)
+        img = self._rescale_image(img)
         detected = False
         confidence = 0
 

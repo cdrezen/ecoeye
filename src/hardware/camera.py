@@ -4,6 +4,7 @@ import time
 from config.settings import Mode
 import config.settings as cfg
 import sys
+from util.rect import Rect
 from vision.frame import Frame
 
 class Camera:
@@ -15,7 +16,7 @@ class Camera:
     EXPOSURE_RESET_TIMEOUT = 2000  # ms
     AFTER_EXPOSURE_TIMEOUT = 300  # ms
         
-    def initialize(self, illumination: Illumination, sensor_pixformat, sensor_framesize, windowing_rect=None, 
+    def initialize(self, illumination: Illumination, sensor_pixformat, sensor_framesize, windowing_rect: Rect|None =None, 
                  nb_framebuffers=0, exposure_mode="auto"):
         """
         Reset and initialize the camera sensor with the configured settings.
@@ -111,7 +112,7 @@ class Camera:
         
         return Frame(img, time.localtime(), self.last_exposure, self.last_gain_db, clock.fps(), image_type)
     
-    def update_exposure_bias(self, is_night: bool, gain_bias=cfg.GAIN_BIAS, expposure_bias=None):
+    def update_exposure_bias(self, is_night: bool, gain_bias=cfg.GAIN_BIAS, exposure_bias=None):
         """
         Adjust camera exposure based on the given parameters.
         
@@ -131,7 +132,7 @@ class Camera:
             exposure_bias = cfg.EXPOSURE_BIAS_DAY if not is_night else cfg.EXPOSURE_BIAS_NIGHT
         sensor.set_auto_exposure(False, exposure_us=int(current_exposure * exposure_bias))
         # Set fixed gain with bias
-        sensor.set_auto_gain(False, gain_db=sensor.get_gain_db() + gain_bias)
+        sensor.set_auto_gain(False, gain_db=int(sensor.get_gain_db() + gain_bias))
         # Wait for settings to take effect
         sensor.skip_frames(time=Camera.AFTER_EXPOSURE_TIMEOUT)
         return
@@ -151,7 +152,7 @@ class Camera:
             sensor.set_auto_gain(False, gain_db=cfg.GAIN_DB)
             sensor.set_auto_exposure(False, exposure_us=int(cfg.EXPOSURE_MS * 1000))
         elif self.exposure_mode == "bias":
-            sensor.set_auto_gain(False, gain_db=self.last_gain_db)
+            sensor.set_auto_gain(False, gain_db=int(self.last_gain_db))
             sensor.set_auto_exposure(False, exposure_us=self.last_exposure)
             
         # Wait for auto-adjustment

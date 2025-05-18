@@ -87,10 +87,11 @@ class PowerManagement:
     BATTERY_LOW_STR = "Battery low - Sleeping"
     AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
 
-    def __init__(self, illumination: Illumination, session: Session = None, enabled=cfg.POWER_MANAGEMENT_ENABLED):
+    def __init__(self, illumination: Illumination, session: Session|None = None, enabled=cfg.POWER_MANAGEMENT_ENABLED):
         
         self.enabled = enabled
         self.illumination = illumination
+        self.session = session
         if self.enabled:
             r1 = R_1_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_PMS_noLED
             r2 = R_2_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_2_PMS_noLED
@@ -122,6 +123,7 @@ class PowerManagement:
         else:
             print("Battery voltage is sufficient.")
 
-        if(self.illumination.can_turn_on(suntime.is_night())):
+        is_night = not suntime.is_daytime()
+        if(self.illumination.can_turn_on(is_night)):
             self.illumination.on(message="after voltage reading")
         

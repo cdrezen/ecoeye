@@ -6,5 +6,5 @@ class Rect:
         self.h = height
 
     def __repr__(self):
-        return f"Rect(x={self.x}, y={self.y}, width={self.width}, height={self.height})"
+        return f"Rect(x={self.x}, y={self.y}, width={self.w}, height={self.h})"
     

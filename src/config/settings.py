@@ -1,6 +1,6 @@
 import sensor
 from util.rect import Rect
-from vision.frame import BlobExportShape
+from vision.frame import BlobExportShape, Frame
 
 class Mode:
     """
@@ -39,7 +39,7 @@ SENSOR_PIXFORMAT = sensor.RGB565
 USE_SENSOR_WINDOWING = False
 #introduce delay between pictures (seconds). Otherwise with a delay of 0, the camera runs at maximum speed
 PICTURE_DELAY_S = 0 if MODE != Mode.DEPLOY else 0
-#threshold above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
+#threshold of PICTURE_DELAY_S above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
 SLEEP_THRESHOLD_S = 10
 #for saving whole images or regions of interest (ROIs). Options:
 #none: save no picture
@@ -133,8 +133,8 @@ BLOB_COLOR_THRESHOLDS = [(0,3),(-3,3),(-3,3)]
 #wether to export the detected blobs as jpegs (e.g., for gathering training images). options:
 #rectangle: exports bounding rectangle
 #square: exports bounding square with a side length of the longest side of the blob's bounding rectangle
-#none: does not export blobs
-BLOBS_EXPORT_METHOD = "rectangle"
+#None: does not export blobs
+BLOBS_EXPORT_METHOD = BlobExportShape.RECTANGLE
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
 

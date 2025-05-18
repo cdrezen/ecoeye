@@ -19,12 +19,6 @@ class Session:
     IMAGELOG_FILENAME = 'images.csv'
     STATUSLOG_FILENAME = 'status.csv'
 
-    def __init__(self, path, detectionlog, imagelog, statuslog):
-        self.path = path
-        self.detectionlog = detectionlog
-        self.imagelog = imagelog
-        self.statuslog = statuslog
-
     def create(self, rtc):
         """
         Create a new session and initialize the necessary files and folders.
@@ -66,7 +60,7 @@ class Session:
                 print("Created ROI",subfolder_name,"subfolder.")
  
         self.save()
-        return self(self.path, self.detectionlog, self.imagelog, self.statuslog)
+        return self
     
     def _find_new_folder_name(self, rtc):
         """
@@ -104,12 +98,12 @@ class Session:
             
             os.chdir(self.path)
             self.detectionlog = DetectionLogger(self.DETECTIONLOG_FILENAME, detection_count)
-            self.imagelog = ImageLogger(self.IMAGELOG_FILENAME, picture_count)
-            Frame.set_starting_id(picture_count)
+            self.imagelog = ImageLogger(self.IMAGELOG_FILENAME)
+            Frame.set_starting_id(picture_count - 1)
             self.statuslog = Csv(self.STATUSLOG_FILENAME, "date_time", "status", "battery_voltage", 
                                 "USB_connected", "core_temperature_C")
             
-            return self(self.path, self.detectionlog, self.imagelog, self.statuslog)
+            return self
         
         return None
 
@@ -119,7 +113,7 @@ class Session:
         """
         data = {
             'path': self.path,
-            'picture_count': self.imagelog.picture_count,
+            'picture_count': Frame.id + 1,
             'detection_count': self.detectionlog.detection_count
         }
 
