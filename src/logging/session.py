@@ -13,7 +13,9 @@ class Session:
     A class to handle session management, including file operations and logging.
     """
 
+    SDCARD = '/sdcard'
     DATA_FOLDER = 'DATA'
+    VAR_FOLDER = 'VAR'
     SESSION_FILENAME = 'session.json'
     DETECTIONLOG_FILENAME = 'detections.csv'
     IMAGELOG_FILENAME = 'images.csv'
@@ -23,12 +25,18 @@ class Session:
         """
         Create a new session and initialize the necessary files and folders.
         """
-        if (not self.DATA_FOLDER in os.listdir()):
-            os.mkdir(self.DATA_FOLDER)
 
-        os.chdir(self.DATA_FOLDER)
+        filenames = os.listdir()
+        if (not self.DATA_FOLDER in filenames):
+            os.mkdir(self.DATA_FOLDER)
+        if (not self.VAR_FOLDER in filenames):
+            os.mkdir(self.VAR_FOLDER) #for compatibility
+
+        print(os.listdir())
         
         self.path = f"{self.DATA_FOLDER}/{self._find_new_folder_name(rtc)}"
+
+        print("Creating new session path:", self.path)
     
         os.mkdir(str(self.path))
         os.chdir(str(self.path))
@@ -37,7 +45,7 @@ class Session:
         filenames = os.listdir()
 
         self.detectionlog = DetectionLogger(self.DETECTIONLOG_FILENAME, 0)
-        self.imagelog = ImageLogger(self.IMAGELOG_FILENAME, 0)
+        self.imagelog = ImageLogger(self.IMAGELOG_FILENAME)
         self.statuslog = Csv(self.STATUSLOG_FILENAME, "date_time", "status", "battery_voltage", 
                             "USB_connected", "core_temperature_C")
 
@@ -86,16 +94,20 @@ class Session:
         """
         Load the current session data from json file
         """
+        os.sync()
+        os.chdir(self.SDCARD)
         # Check if the session file exists
+        print(f"lisdir(sdcar):", os.listdir())
 
-        if self.SESSION_FILENAME in os.listdir('/'):
-            with open(f'/{self.SESSION_FILENAME}', 'r') as file:
+        if self.SESSION_FILENAME in os.listdir():
+            with open(f'{self.SDCARD}/{self.SESSION_FILENAME}', 'r') as file:
                 data = json.load(file)
                 self.path = data['path']
                 detection_count = data['detection_count']
                 picture_count = data['picture_count']
                 ### ....
             
+            print(f"Loaded session.json file. self.path: {self.path}, detection_count: {detection_count}, picture_count: {picture_count}")
             os.chdir(self.path)
             self.detectionlog = DetectionLogger(self.DETECTIONLOG_FILENAME, detection_count)
             self.imagelog = ImageLogger(self.IMAGELOG_FILENAME)
@@ -118,8 +130,8 @@ class Session:
         }
 
         try:
-
-            with open(f'/{self.SESSION_FILENAME}', 'w') as file:
+            print(f"Saving session data to /sdcard/{self.SESSION_FILENAME} file")
+            with open(f'/sdcard/{self.SESSION_FILENAME}', 'w') as file:
                 json.dump(data, file)
 
         except Exception as e:

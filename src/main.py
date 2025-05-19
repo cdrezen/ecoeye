@@ -30,8 +30,6 @@ class App:
         self.session: Session
         self.power_mgmt: PowerManagement
         self.is_night = not self.solartime.is_daytime()
-        self.image_width = cfg.WIN_RECT.w if cfg.USE_SENSOR_WINDOWING else sensor.width()
-        self.image_height = cfg.WIN_RECT.h if cfg.USE_SENSOR_WINDOWING else sensor.height()
         self.frame_differencer: FrameDifferencer
         self.classifier: Classifier
         self.wifi_enabled= cfg.WIFI_ENABLED and wifishield_isconnnected()
@@ -67,6 +65,9 @@ class App:
 
         self.camera.initialize(self.illumination, cfg.SENSOR_PIXFORMAT, cfg.SENSOR_FRAMESIZE,
                         cfg.WIN_RECT, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
+        
+        self.image_width = cfg.WIN_RECT.w if cfg.USE_SENSOR_WINDOWING else sensor.width()
+        self.image_height = cfg.WIN_RECT.h if cfg.USE_SENSOR_WINDOWING else sensor.height()
 
         #start counting time
         self.start_time_status_ms = pyb.millis()
@@ -84,15 +85,15 @@ class App:
             print("Saved background image - now frame differencing!")
 
     def process_frame(self, frame: Frame, roi_rect: tuple[int, int, int, int]):
+
         if(cfg.FRAME_DIFF_ENABLED):
             # Process the frame using the frame differencer
-            frame, triggered, blobs = self.frame_differencer.process_frame(frame)
-            if (triggered):
-                print(len(blobs),"blob(s) within range!")
+            blobs = self.frame_differencer.process_frame(frame)
+            if blobs:
                 self.process_blobs(blobs, frame)
         
         #log roi image data, possibly classify and save image
-        if(triggered or cfg.MODE != Mode.LIVE_VIEW):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
+        if(cfg.MODE != Mode.LIVE_VIEW):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
 
             if (cfg.MODE != Mode.LIVE_VIEW):
                 frame.log(self.imagelog)
@@ -109,15 +110,15 @@ class App:
                 if cfg.INDICATORS_ENBLED: LED_GREEN_ON()
                 if (cfg.FRAME_DIFF_ENABLED): #revert image_roi replacement to get original image for classification
                     frame.img.replace(self.frame_differencer.get_original_image())
-                frame.save("jpegs/"+ str('_'.join(map(str,roi_rect))))
+                frame.save(str('_'.join(map(str,roi_rect))))
                 if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
 
     def process_blobs(self, blobs, frame: Frame):
         nb_blobs_to_process = len(blobs) if cfg.MAX_BLOB_TO_PROCESS == -1 else min(cfg.MAX_BLOB_TO_PROCESS, len(blobs))
 
-        for i in range(nb_blobs_to_process):
+        for i in range(0, nb_blobs_to_process):
             blob = blobs[i]
-            color_statistics = frame.get_stats(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
+            color_statistics = frame.img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
             #optional marking of blobs
             if (cfg.INDICATORS_ENBLED):
                 frame.mark_blob(blob)
@@ -125,12 +126,12 @@ class App:
             #log each detected blob, we finish the CSV line here if not classifying
             self.detectionlog.append(frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
 
-            if not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!="none"):
+            if not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!=None):
                 continue
 
             blob_rect, img_blob = frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
 
-            if (cfg.BLOBS_EXPORT_METHOD!="none"):
+            if (cfg.BLOBS_EXPORT_METHOD!=None):
                 if (cfg.INDICATORS_ENBLED): LED_GREEN_ON()
                 frame.save("blobs", str(frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))))
                 if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
@@ -180,7 +181,7 @@ class App:
 
             #auto-adjust exposure with user biases or gain, blend frame if frame differencing and no detection
             #wait up to twice expose period
-            if (cfg.EXPOSURE_MODE!="auto" and (pyb.elapsed_millis(self.start_time_blending_ms) > cfg.EXPOSE_PERIOD_S * 1000) and (not self.triggered or not cfg.FRAME_DIFF_ENABLED)
+            if (cfg.EXPOSURE_MODE!="auto" and (pyb.elapsed_millis(self.start_time_blending_ms) > cfg.EXPOSE_PERIOD_S * 1000) and not (cfg.FRAME_DIFF_ENABLED and self.frame_differencer.has_found_blobs)
             or (cfg.EXPOSURE_MODE!="auto" and (pyb.elapsed_millis(self.start_time_blending_ms) > 2 * cfg.EXPOSE_PERIOD_S * 1000))):
                 
                 #blend new frame only if frame differencing

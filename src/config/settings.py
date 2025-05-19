@@ -1,6 +1,5 @@
 import sensor
 from util.rect import Rect
-from vision.frame import BlobExportShape, Frame
 
 class Mode:
     """
@@ -116,7 +115,7 @@ LED_MODULE_COOLDOWN_MS = 0
 ### FRAME DIFFERENCING ###
 #wether to use frame differencing. This subtracts every current image from a reference image, resulting in dark images when there is no change.
 #a change will introduce a "blob" in the otherwise dark image, which can be detected, logged, and characterised
-FRAME_DIFF_ENABLED = False if MODE != Mode.DEPLOY else False
+FRAME_DIFF_ENABLED = False if MODE != Mode.DEPLOY else True
 # _____ FD enabled only parameters _____
 #action for blobs. options:
 # x: stop processing blobs after the x one
@@ -129,11 +128,16 @@ MAX_BLOB_PIXELS = 500000
 #color channel thresholds for detection. Pixels with color channel values outside of these ranges will be considered to be blobs.
 #requires at least one tuple for grayscale images (for instance: [(0,5)]), three tuples for RGB565 images (for instance: [(0,3),(-3,3),(-3,3)] - this corresponds to LAB channels)
 BLOB_COLOR_THRESHOLDS = [(0,3),(-3,3),(-3,3)]
+
+class BlobExportShape:
+    RECTANGLE = 0
+    SQUARE = 1
 # _____ advanced settings _____
 #wether to export the detected blobs as jpegs (e.g., for gathering training images). options:
 #rectangle: exports bounding rectangle
 #square: exports bounding square with a side length of the longest side of the blob's bounding rectangle
 #None: does not export blobs
+
 BLOBS_EXPORT_METHOD = BlobExportShape.RECTANGLE
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
@@ -192,7 +196,7 @@ TIME_COVERAGE = "24h" if MODE != Mode.DEPLOY else "24h"
 # pcf8563 : WUV shield (red) with CR1220 coin cell battery
 RTC_MODE = 'onboard' if MODE != Mode.DEPLOY else 'onboard'
 #For internal RTC, set the current date and time manually (year, month, day, weekday, hours, minutes, seconds, subseconds).
-START_DATETIME = (2025, 5, 15, 5, 1, 12, 0, 0)
+START_DATETIME = (2025, 5, 15, 5, 12, 12, 0, 0)
 #defining operation times for camera, depending on its operation time mode
 SUNRISE_HOUR = 5
 SUNRISE_MINUTE = 17

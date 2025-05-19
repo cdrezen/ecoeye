@@ -25,6 +25,7 @@ class FrameDifferencer:
         self.img_ref_fb: image.Image
         self.img_ori_fb: image.Image
         self.imagelog = imagelog
+        self.has_found_blobs = False
         self.initialize_framebuffers()
         if (cfg.EXPOSURE_MODE=="auto"): 
             print("ATTENTION: using automatic exposure with frame differencing can result in spurious triggers!")
@@ -98,8 +99,8 @@ class FrameDifferencer:
         # Compute absolute frame difference
         frame.img.difference(self.img_ref_fb)
         
-        triggered = False
         blobs_filt = []
+        self.has_found_blobs = False
         
         try:
             # Find blobs in the difference image
@@ -110,14 +111,14 @@ class FrameDifferencer:
             
             if len(blobs_filt) > 0:
                 print(f"{len(blobs_filt)} blob(s) within range!")
-                triggered = True
+                self.has_found_blobs = True
                 
         except MemoryError:
             # When there is a memory error, we assume that it is triggered because of many blobs
-            triggered = True
+            self.has_found_blobs = True
             print("Memory error in blob detection - assuming triggered")
             
-        return frame, triggered, blobs_filt
+        return blobs_filt
     
     def get_original_image(self):
         """Return the original image framebuffer"""
@@ -127,67 +128,3 @@ class FrameDifferencer:
         """Return the reference image framebuffer"""
         return self.img_ref_fb
     
-    @DeprecationWarning
-    def mark_blobs(self, img, blobs):
-        """
-        Draw markers around detected blobs
-        
-        Args:
-            img: Image on which to draw
-            blobs: List of blobs to mark
-        """
-        for blob in blobs:
-            img.draw_edges(blob.corners(), color=(0,0,255), thickness=5)
-            img.draw_rectangle(blob.rect(), color=(255,0,0), thickness=5)
-    
-    @DeprecationWarning
-    def extract_blob_region(self, blob):
-        """
-        Extract the region of interest around a blob based on user parameters
-        
-        Args:
-            blob: The blob to extract
-            
-        Returns:
-            blob_rect: Rectangle coordinates for the blob region
-            img_blob: Image of the extracted region
-        """
-        # Set blob bounding box according to user parameters
-        if cfg.BLOBS_EXPORT_METHOD == "rectangle":
-            blob_rect = blob.rect()
-        elif cfg.BLOBS_EXPORT_METHOD == "square":
-            # Get longest side of blob's bounding rectangle
-            if blob.w() >= blob.h():
-                blob_h = blob.w()
-            else:
-                blob_h = blob.h()
-                
-            if blob.h() > blob.w():
-                blob_w = blob.h()
-            else:
-                blob_w = blob.w()
-                
-            if blob_h > self.image_height:
-                print("Cannot export blob bounding square as its height would exceed the image height! Using image height instead.")
-                blob_h = self.image_height
-                
-            # Get new coordinates depending on location of blob relative to border
-            if blob.x() + blob_w >= self.image_width:
-                blob_x = self.image_width - blob_w
-            else:
-                blob_x = blob.x()
-                
-            if blob.y() + blob_h >= self.image_height:
-                blob_y = self.image_height - blob_w
-            else:
-                blob_y = blob.y()
-                
-            # Set blob
-            blob_rect = (blob_x, blob_y, blob_w, blob_h)
-        else:
-            blob_rect = blob.rect()
-            
-        # Extract blob
-        img_blob = self.img_ori_fb.copy(roi=blob_rect, copy_to_fb=True)
-        
-        return blob_rect, img_blob

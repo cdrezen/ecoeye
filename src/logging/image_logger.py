@@ -1,6 +1,5 @@
 from logging.csv import Csv
-from time import struct_time
-from vision.frame import Frame
+import vision.frame
 
 class ImageLogger(Csv):
     """
@@ -14,11 +13,11 @@ class ImageLogger(Csv):
         
         :param path: The path to the CSV file.
         """
-        super().__init__(path, "date_time", 
+        super().__init__(path, "picture_id", "date_time", 
                         "exposure_us", "gain_dB", "frames_per_second", "image_type", 
                         "roi_x", "roi_y", "roi_width", "roi_height")
     
-    def append(self, frame: Frame):
+    def append(self, frame: vision.frame.Frame):
         """
         Append image data to the log.
         

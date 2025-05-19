@@ -1,14 +1,9 @@
-from typing import List, Tuple
+from config.settings import BlobExportShape
 import image
-from time import struct_time
-from logging.image_logger import ImageLogger
+import time
 from util import colors
 
-class BlobExportShape:
-    RECTANGLE = 0
-    SQUARE = 1
-
-class Frame():
+class Frame:
     """
     image.Image extension with capture data and logging methods.
     """
@@ -20,7 +15,7 @@ class Frame():
     #     super().__init__(arg, buffer, copy_to_fb)
     #     self._init_identification()
 
-    def __init__(self, img: image.Image, capture_time: struct_time, 
+    def __init__(self, img: image.Image, capture_time: time.struct_time, 
                  exposure_us: int, gain_db: float, fps: float,
                  image_type: str = "", roi_rect=None):
         """
@@ -60,11 +55,11 @@ class Frame():
     #     obj._init_identification()
     #     return obj
 
-    def copy(self, x_scale:float=1.0, y_scale:float=1.0, roi:Tuple[int,int,int,int]|None=None, rgb_channel:int=-1, alpha:int=256, color_palette=None, alpha_palette=None, hint:int=0, copy_to_fb:float=False):
+    def copy(self, x_scale:float=1.0, y_scale:float=1.0, roi:tuple[int, int, int, int]|None=None, rgb_channel:int=-1, alpha:int=256, color_palette=None, alpha_palette=None, hint:int=0, copy_to_fb:float=False):
         img_copy = self.img.copy(x_scale=x_scale, y_scale=y_scale, roi=roi, rgb_channel=rgb_channel, alpha=alpha, color_palette=color_palette, alpha_palette=alpha_palette, hint=hint, copy_to_fb=copy_to_fb)
         return Frame(img_copy, self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, self.roi_rect)
     
-    def get_stats(self, thresholds:List[Tuple[int,int]]|None=None, invert=False, roi:Tuple[int,int,int,int]|None=None, bins=256, l_bins=256, a_bins=256, b_bins=256, difference:image.Image|None=None):
+    def get_stats(self, thresholds:list[tuple[int, int]]|None=None, invert=False, roi:tuple[int, int, int, int]|None=None, bins=256, l_bins=256, a_bins=256, b_bins=256, difference:image.Image|None=None):
         return self.img.get_statistics(thresholds=thresholds, invert=invert, roi=roi, bins=bins, l_bins=l_bins, a_bins=a_bins, b_bins=b_bins, difference=difference)
     
     def save(self, foldername: str, filename: str = ""):
@@ -73,10 +68,10 @@ class Frame():
         path = f"{Frame.BASE_PATH}{foldername}/{filename}.jpg"
         self.img.save(path)
 
-    def log(self, imagelog: ImageLogger):
+    def log(self, imagelog):
         imagelog.append(self)
 
-    def save_and_log(self, foldername: str, imagelog: ImageLogger, filename: str = ""):
+    def save_and_log(self, foldername: str, imagelog, filename: str = ""):
         self.save(foldername, filename)
         self.log(imagelog)
         
@@ -86,7 +81,7 @@ class Frame():
         :param blob: The detected blob to mark.
         :param thickness: The thickness of the rectangle lines.
         """
-        self.img.draw_edges(self.img, corners=blob.corners(), color=edge_color, thickness=thickness)
+        self.img.draw_edges(blob.corners(), color=edge_color, thickness=thickness)
         self.img.draw_rectangle(*blob.rect(), color=rect_color, thickness=thickness)
         return self
     

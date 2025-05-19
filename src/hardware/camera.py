@@ -5,7 +5,7 @@ from config.settings import Mode
 import config.settings as cfg
 import sys
 from util.rect import Rect
-from vision.frame import Frame
+import vision.frame
 
 class Camera:
     """
@@ -110,7 +110,7 @@ class Camera:
         self.last_gain_db = sensor.get_gain_db()
         self.last_exposure = sensor.get_exposure_us()
         
-        return Frame(img, time.localtime(), self.last_exposure, self.last_gain_db, clock.fps(), image_type)
+        return vision.frame.Frame(img, time.localtime(), self.last_exposure, self.last_gain_db, clock.fps(), image_type)
     
     def update_exposure_bias(self, is_night: bool, gain_bias=cfg.GAIN_BIAS, exposure_bias=None):
         """

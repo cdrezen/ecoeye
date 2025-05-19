@@ -37,7 +37,7 @@ class DetectionLogger(Csv):
         data = [self.detection_count]
 
         if not picture_id is None:
-            data.extend(picture_id)
+            data.append(picture_id)
         elif not prepend_comma:
             raise ValueError("Missing parameters.")
 
@@ -47,14 +47,14 @@ class DetectionLogger(Csv):
             blob_data = ["NA"] * 19
 
         if blob_data:
-            data.extend(blob_data)
+            data += blob_data
 
         if labels and confidences:
             if not rect:
                 raise ValueError("Missing parameter rect.")
             labels_str = ";".join(map(str, labels))
             confidences_str = ";".join(map(str, confidences))
-            data.extend(labels_str, confidences_str, *rect)
+            data += [labels_str, confidences_str, rect.x(), rect.y(), rect.w(), rect.h()]
         
         super().append(*data, prepend_comma=prepend_comma, end_line=end_line)
 
