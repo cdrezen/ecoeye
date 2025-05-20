@@ -105,7 +105,7 @@ class App:
                 detected, detection_confidence = self.classifier.classify(frame.img, cfg.CLASSIFY_MODE, roi_rect=roi_rect)
 
             # saving picture
-            if(cfg.SAVE_ROI_MODE == "all" or cfg.SAVE_ROI_MODE == "trigger" or (cfg.SAVE_ROI_MODE == "detect" and detected)):
+            if(cfg.SAVE_ROI_MODE == "all" or (cfg.SAVE_ROI_MODE  == "trigger" and self.frame_differencer.has_found_blobs) or (cfg.SAVE_ROI_MODE == "detect" and detected)):
                 print("Saving ROI or whole image...")
                 if cfg.INDICATORS_ENBLED: LED_GREEN_ON()
                 if (cfg.FRAME_DIFF_ENABLED): #revert image_roi replacement to get original image for classification
