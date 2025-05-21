@@ -75,7 +75,10 @@ class Session:
         Find the new folder name based on the current date and time and current folders count.
         """
         # Listing root contents to search folders
-        foldernames=[name for name in os.listdir() if "." not in name]
+        foldernames=[name for name in os.listdir(self.DATA_FOLDER) if "." not in name]
+
+        print("Foldernames:", foldernames, "in", os.getcwd())
+
         new_folder_number=len(foldernames)
 
         #create folder for new deployment to avoid overwriting images

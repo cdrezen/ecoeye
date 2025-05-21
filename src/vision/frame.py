@@ -1,3 +1,4 @@
+import os
 from config.settings import BlobExportShape
 import image
 import time
@@ -9,7 +10,7 @@ class Frame:
     """
 
     id = 0 # (static) (overflow à 9223372036854775807/(86400*60fps)=1779199852788j)
-    BASE_PATH = "jpegs/"
+    BASE_FOLDER = "jpegs"
     
     # def __init__(self, arg, buffer:bytes|bytearray|memoryview|None=None, copy_to_fb:bool=False):
     #     super().__init__(arg, buffer, copy_to_fb)
@@ -65,7 +66,10 @@ class Frame:
     def save(self, foldername: str, filename: str = ""):
         if not filename:
             filename = str(self.id)
-        path = f"{Frame.BASE_PATH}{foldername}/{filename}.jpg"
+        folderpath = f"{Frame.BASE_FOLDER}/{foldername}"
+        if not foldername in os.listdir(Frame.BASE_FOLDER):
+            os.mkdir(folderpath)
+        path = f"{folderpath}/{filename}.jpg"
         self.img.save(path)
 
     def log(self, imagelog):
