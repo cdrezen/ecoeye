@@ -1,10 +1,10 @@
 # Functions for EcoNect
 # import libraries
-import machine, pyb, time, network, sensor, os, urequests, math
+import machine, pyb, time, network, sensor, os, requests, math
 from pyb import Pin, Timer, ExtInt
 # import library for interrupt and allocate buffer memory
 import micropython
-
+from hardware.led import *
 ##----- Function description -----#
 ## Reset and initialize the sensor
 ##----- Input arguments -----#
@@ -115,45 +115,6 @@ def expose(exposure_control,exposure_bias_day,exposure_bias_night,gain_bias,expo
         # TODO:possibly turn off LEDs here if it works with subsequent fd function and image capture
     return
 
-# ━━━━━━━━━━ 𝗦𝗗 𝗖𝗔𝗥𝗗 𝗦𝗔𝗩𝗜𝗡𝗚 ━━━━━━━━━━
-# ⚊⚊⚊⚊⚊ save status log ⚊⚊⚊⚊⚊
-# Save status log
-# --- Input arguments ---
-# vbat - voltage of batteries
-# status - user-defined string describing the status to save in the log
-# pathstr - path of the folder, string type
-# --- Output variables ---
-# none
-def save_status(vbat,status="NA",folder='/'):
-    print("Saving '",status,"' into status log.")
-    adc  = pyb.ADCAll(12)
-    if(not 'status.csv' in os.listdir(str(folder))):
-        with open(str(folder)+'/status.csv', 'a') as statuslog:
-            statuslog.write("date_time" + ',' + "status" + ',' + "battery_voltage" + ',' + "USB_connected" + ',' + "core_temperature_C" + '\n')
-    with open(str(folder)+'/status.csv', 'a') as statuslog:
-        statuslog.write(str("-".join(map(str,time.localtime()[0:6])))+ ',' + status + ',' + str(vbat) + ',' + str(pyb.USB_VCP().isconnected()) + ',' + str(adc.read_core_temp()) + '\n')
-    return
-
-# ⚊⚊⚊⚊⚊ save variables ⚊⚊⚊⚊⚊
-# save the dynamic variables in the VAR folder
-# --- Input arguments ----
-# current_folder - name of the current folder
-# picture_count - name/number of the current picture
-# detection_count - name/number of the current detection
-# --- Output variables ---
-# none
-def save_variables(current_folder, picture_count, detection_count):
-    # create file in VAR folder and write current folder name
-    with open('/VAR/currentfolder.txt', 'w') as folderlog:
-        folderlog.write(str(current_folder))
-    # create file on root and write current picture ID
-    with open('/VAR/picturecount.txt', 'w') as countlog:
-        countlog.write(str(picture_count))
-    # create file on root and write current detection ID
-    with open('/VAR/detectioncount.txt', 'w') as countlog:
-        countlog.write(str(detection_count))
-    return
-
 # ━━━━━━━━━━ 𝗜𝗠𝗔𝗚𝗘 𝗔𝗡𝗔𝗟𝗬𝗦𝗜𝗦 ━━━━━━━━━━
 # ⚊⚊⚊⚊⚊ Deferred analysis ⚊⚊⚊⚊⚊
 # deferred analysis of images when scale is too small (not working yet)
@@ -163,157 +124,28 @@ def save_variables(current_folder, picture_count, detection_count):
 # predictions_list
 # --- Output variables ---
 # none
-def deferred_analysis(net,minimum_image_scale,predictions_list,folder):
+def deferred_analysis(net,minimum_image_scale,predictions_list):
     print("Starting deferred analysis of images before sleeping...")
     #scan jpegs on card
     os.sync()
     sensor.dealloc_extra_fb()
     sensor.dealloc_extra_fb()
     print("current working dir:",os.getcwd())
-    files=os.listdir(str(folder)+"/jpegs")
+    files=os.listdir("jpegs")
     jpegs=[files for files in files if "jpg" in files]
     print(jpegs)
     #open and classify each jpeg
     for jpeg in jpegs:
         print("Loading:",jpeg)
-        img=image.Image(str(folder)+"//jpegs/picture_1.jpg",copy_to_fb=True)
+        img=image.Image("jpegs/picture_1.jpg",copy_to_fb=True)
         #convert to proper format
         img.to_rgb565()
         #img=image.Image("/jpegs/picture_1.jpg"+jpeg,copy_to_fb=True)
         print("LED on: classifying image", jpeg, "with tensorflow lite...")
         for obj in tf.classify(net, img, min_scale=minimum_image_scale, scale_mul=0.5, x_overlap=0.5, y_overlap=0.5):
-            with open(str(folder)+'/detections.csv', 'a') as detectionlog:
+            with open('detections.csv', 'a') as detectionlog:
                 detectionlog.write(str(jpeg) + ',' + str(predictions_list[1][0]) + ',' + str(predictions_list[1][1]) + ',' + str(obj.rect()[0]) + ',' + str(obj.rect()[1]) + ',' + str(obj.rect()[2]) + ',' + str(obj.rect()[3]) + ',' + str(predictions_list[0][0]) + ',' + str(predictions_list[0][1]) + '\n')
     return
-
-# ━━━━━━━━━━ 𝗦𝗨𝗡𝗥𝗜𝗦𝗘 𝗔𝗡𝗗 𝗦𝗨𝗡𝗦𝗘𝗧 𝗖𝗟𝗔𝗦𝗦 ━━━━━━━━━━
-class suntime:
-
-    def __init__(self, op_t, sr_h, sr_m, ss_h, ss_m):
-        self.op_t = op_t
-        self.sr_h = sr_h
-        self.sr_m = sr_m
-        self.ss_h = ss_h
-        self.ss_m = ss_m
-
-    # ⚊⚊⚊⚊⚊ daytime check ⚊⚊⚊⚊⚊
-    # checks if its daytime or nightime
-    # --- Input arguments ---
-    # sunrise and sunset times
-    # --- Output variables ---
-    # daytime - boolean whever its day or not
-    def is_daytime(self):
-        # get current time in milliseconds
-        nowms = ((time.localtime()[3]*60+time.localtime()[4])*60+time.localtime()[5])*1000
-        # now is daytime
-        if ( nowms >= (self.sr_h*60+self.sr_m)*60*1000 and nowms < (self.ss_h*60+self.ss_m)*60*1000 ):
-            daytime = True
-        else:
-            daytime = False
-        return daytime
-
-    # ⚊⚊⚊⚊⚊ Time until sunrise ⚊⚊⚊⚊⚊
-    # calculates time until sunrise
-    # --- Input arguments ---
-    # sunrise and sunset times
-    # --- Output variables ---
-    # time_to_sunrise - in milliseconds
-    def time_until_sunrise(self):
-        # get current time in milliseconds
-        nowms = ((time.localtime()[3]*60+time.localtime()[4])*60+time.localtime()[5])*1000
-        daytime = self.is_daytime()
-        if (daytime):
-            time_to_sunrise = 0
-        else:
-            # get ms until sunrise
-            # calculation for before midnight
-            if(nowms >= (self.ss_h*60+self.ss_m)*60*1000 ):
-                time_to_sunrise = (24*60+self.sr_h*60+self.sr_m)*60*1000 - nowms
-            # calculation for after midnight
-            else:
-                time_to_sunrise = (self.sr_h*60+self.sr_m)*60*1000 - nowms
-        return time_to_sunrise
-
-    # ⚊⚊⚊⚊⚊ Time until sunset ⚊⚊⚊⚊⚊
-    # calculate time until sunset
-    # --- Input arguments ---
-    # sunrise and sunset times
-    # --- Output variables ---
-    # time_to_sunset - in milliseconds
-    def time_until_sunset(self):
-        # get current time in milliseconds
-        nowms = ((time.localtime()[3]*60+time.localtime()[4])*60+time.localtime()[5])*1000
-        daytime = self.is_daytime()
-        if (daytime):
-            time_to_sunset = (self.ss_h*60+self.ss_m)*60*1000 - nowms
-        else:
-            time_to_sunset = 0
-        return time_to_sunset
-
-    # ⚊⚊⚊⚊⚊ operation time check ⚊⚊⚊⚊⚊
-    # check if operation time
-    # --- Input arguments ---
-    # sunrise and sunset times
-    # operationt time string
-    # --- Output variables ---
-    # operation_time_check - boolean
-    def is_operation_time(self):
-        #check time operation mode in day/night operation time modes
-        night_time_check = not self.is_daytime()
-        if(self.op_t=="day"):
-            operation_time_check = not night_time_check
-        if(self.op_t=="night"):
-            operation_time_check = night_time_check
-        if(self.op_t=="24h"):
-            operation_time_check = True
-        return operation_time_check
-
-# ━━━━━━━━━━ 𝗩𝗢𝗟𝗧𝗔𝗚𝗘 𝗥𝗘𝗔𝗗𝗜𝗡𝗚 𝗖𝗟𝗔𝗦𝗦 ━━━━━━━━━━
-class vdiv:
-
-    def __init__(self, vdiv_en, nread, dread, R_1, R_2):
-        self.vdiv_en = vdiv_en
-        self.nread = nread
-        self.dread = dread
-        self.R_1 = R_1
-        self.R_2 = R_2
-
-    # ⚊⚊⚊⚊⚊ ADC voltage reading ⚊⚊⚊⚊⚊
-    # Read ADC voltage
-    # ---- Indicators ---
-    # YELLOW while adc measuring
-    # --- Input arguments ---
-    # voltage divider parameters
-    # --- Output variables ---
-    # adc_voltage - ADC value converted into volts
-    def read_voltage(self):
-        #check voltage
-        if (self.vdiv_en):
-            # adc pin needs to be defined after wifi shield used it
-            adc = pyb.ADC(pyb.Pin('P6'))
-            #  yellow LED during measure
-            LED_YELLOW_ON()
-            # read adc value and convert into volts
-            voltage = 0
-            # create and set high the volatge divider enable pin
-            ADCEN = Pin('P1', pyb.Pin.OUT_PP)
-            ADCEN.high()
-            for i in range(self.nread):
-                pyb.delay(self.dread)
-                voltage = voltage + (adc.read() * (3.3/4095) *(1+self.R_1/self.R_2))
-            # disconnect voltage divider from ADC pin
-            ADCEN.low()
-            adc_voltage = voltage/self.nread
-            LED_YELLOW_OFF()
-            # print the adc voltage on terminal
-            if(pyb.USB_VCP().isconnected()):
-                print("USB supply voltage: %f V" % adc_voltage) # read value, 0-4095+
-            else : print("Battery voltage: %f V" % adc_voltage) # read value, 0-4095+
-            #re-assign pin to something neutral with low frequency
-            Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6")).pulse_width_percent(0)
-        else:
-            adc_voltage="NA"
-        return adc_voltage
 
 # ━━━━━━━━━━ 𝗟𝗢𝗪 𝗣𝗢𝗪𝗘𝗥 𝗦𝗟𝗘𝗘𝗣 ━━━━━━━━━━
 # ⚊⚊⚊⚊⚊ light sleep ⚊⚊⚊⚊⚊
@@ -576,7 +408,7 @@ def data_transfer(url, data1, data2=None, data3=None, data4=None):
 
     print("Sending data to server")
     try:
-        request_data = urequests.post(url, json=data, headers=headers)
+        request_data = requests.post(url, json=data, headers=headers)
         LED_BLUE_BLINK(300,2)
         print("Data sucessfully sent")
         data_transferred = True
@@ -605,7 +437,7 @@ def image_transfer(url, img1):
     # send the file
     print("Sending file to server")
     try:
-        request_image = urequests.post(url, files=files, headers=headers)
+        request_image = requests.post(url, files=files, headers=headers)
         LED_BLUE_BLINK(300,2)
         # print some post request parameters
         print("Image sent to Server")
@@ -716,219 +548,3 @@ def check_poweroff(pin_switch):
             LED_RED_BLINK(100,1)
             pyb.delay(100)
     return
-
-# ━━━━━━━━━━ 𝗟𝗘𝗗 𝗙𝗨𝗡𝗖𝗧𝗜𝗢𝗡𝗦 ━━━━━━━━━━
-# ⚊⚊⚊⚊⚊ LED ON ⚊⚊⚊⚊⚊
-def LED_RED_ON():
-    LED_RGB_OFF()
-    pyb.LED(1).on()
-    return
-def LED_GREEN_ON():
-    LED_RGB_OFF()
-    pyb.LED(2).on()
-    return
-def LED_BLUE_ON():
-    LED_RGB_OFF()
-    pyb.LED(3).on()
-    return
-def LED_YELLOW_ON():
-    LED_RGB_OFF()
-    pyb.LED(1).on()
-    pyb.LED(2).on()
-    return
-def LED_PURPLE_ON():
-    LED_RGB_OFF()
-    pyb.LED(1).on()
-    pyb.LED(3).on()
-    return
-def LED_CYAN_ON():
-    LED_RGB_OFF()
-    pyb.LED(2).on()
-    pyb.LED(3).on()
-    return
-def LED_WHITE_ON():
-    LED_RGB_OFF()
-    pyb.LED(1).on()
-    pyb.LED(2).on()
-    pyb.LED(3).on()
-    return
-def LED_IR_ON():
-    LED_RGB_OFF()
-    pyb.LED(4).on()
-    return
-# ⚊⚊⚊⚊⚊ LED OFF ⚊⚊⚊⚊⚊
-def LED_RED_OFF():
-    pyb.LED(1).off()
-    return
-def LED_GREEN_OFF():
-    pyb.LED(2).off()
-    return
-def LED_BLUE_OFF():
-    pyb.LED(3).off()
-    return
-def LED_YELLOW_OFF():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
-    return
-def LED_PURPLE_OFF():
-    pyb.LED(1).off()
-    pyb.LED(3).off()
-    return
-def LED_CYAN_OFF():
-    pyb.LED(2).off()
-    pyb.LED(3).off()
-    return
-def LED_WHITE_OFF():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
-    pyb.LED(3).off()
-    return
-def LED_IR_OFF():
-    pyb.LED(4).off()
-    return
-def LED_RGB_OFF():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
-    pyb.LED(3).off()
-    return
-# ⚊⚊⚊⚊⚊ LED TOGGLE ⚊⚊⚊⚊⚊
-def LED_RED_TOGGLE():
-    pyb.LED(2).off()
-    pyb.LED(3).off()
-    pyb.LED(1).toggle()
-    return
-def LED_GREEN_TOGGLE():
-    pyb.LED(1).off()
-    pyb.LED(3).off()
-    pyb.LED(2).toggle()
-    return
-def LED_BLUE_TOGGLE():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
-    pyb.LED(3).toggle()
-    return
-def LED_YELLOW_TOGGLE():
-    pyb.LED(3).off()
-    pyb.LED(1).toggle()
-    pyb.LED(2).toggle()
-    return
-def LED_PURPLE_TOGGLE():
-    pyb.LED(2).off()
-    pyb.LED(1).toggle()
-    pyb.LED(3).toggle()
-    return
-def LED_CYAN_TOGGLE():
-    pyb.LED(1).off()
-    pyb.LED(4).off()
-    pyb.LED(3).toggle()
-    return
-def LED_WHITE_TOGGLE():
-    pyb.LED(1).toggle()
-    pyb.LED(2).toggle()
-    pyb.LED(3).toggle()
-    return
-def LED_IR_TOGGLE():
-    pyb.LED(4).toggle()
-    return
-def LED_ALL_TOGGLE():
-    pyb.LED(1).toggle()
-    pyb.LED(2).toggle()
-    pyb.LED(3).toggle()
-    pyb.LED(4).toggle()
-    return
-# ⚊⚊⚊⚊⚊ LED BLINK ⚊⚊⚊⚊⚊
-def LED_RED_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-def LED_GREEN_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(2).on()
-        pyb.delay(blinktime)
-        pyb.LED(2).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-def LED_BLUE_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(3).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-def LED_YELLOW_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.LED(2).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
-        pyb.LED(2).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-def LED_PURPLE_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
-        pyb.LED(3).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-def LED_CYAN_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(2).on()
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(2).off()
-        pyb.LED(3).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-def LED_WHITE_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.LED(2).on()
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
-        pyb.LED(2).off()
-        pyb.LED(3).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-def LED_IR_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(4).on()
-        pyb.delay(blinktime)
-        pyb.LED(4).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
-# ⚊⚊⚊⚊⚊ LED RAINBOW ⚊⚊⚊⚊⚊
-def LED_CYCLE(blinktime=1000,blinks=1):
-    LED_RED_BLINK(blinktime,blinks)
-    LED_GREEN_BLINK(blinktime,blinks)
-    LED_BLUE_BLINK(blinktime,blinks)
-    LED_YELLOW_BLINK(blinktime,blinks)
-    LED_PURPLE_BLINK(blinktime,blinks)
-    LED_CYAN_BLINK(blinktime,blinks)
-    LED_WHITE_BLINK(blinktime,blinks)
-    LED_RGB_OFF()
-    return
-
-

@@ -1,0 +1,7 @@
+{
+    "python.analysis.extraPaths": ["/home/user/.config/OpenMV/openmvide/micropython-headers"],
+    "python.autoComplete.extraPaths": ["/home/user/.config/OpenMV/openmvide/micropython-headers"],
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${env:PYTHONPATH};/home/user/.config/OpenMV/openmvide/micropython-headers"
+    },
+}
