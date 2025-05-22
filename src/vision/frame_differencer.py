@@ -72,8 +72,8 @@ class FrameDifferencer:
         # low blending of the new image while a high alpha results in high
         # blending of the new image. We need to reverse that for this update.
         #blend with frame that is in buffer
-        self.img_ori_fb.blend(self.img_ref_fb, alpha=(256-cfg.BACKGROUND_BLEND_LEVEL))
-        self.img_ref_fb.replace(self.img_ori_fb)
+        frame.img.blend(self.img_ref_fb, alpha=(256-cfg.BACKGROUND_BLEND_LEVEL))
+        self.img_ref_fb.replace(frame.img)
 
         if cfg.INDICATORS_ENBLED: LED_CYAN_OFF()
 

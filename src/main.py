@@ -178,18 +178,17 @@ class App:
                 print("Blinking LED indicator after",str(cfg.ACTIVE_LED_INTERVAL_MS/1000),"seconds")
                 LED_BLUE_BLINK(cfg.ACTIVE_LED_DURATION_MS)
 
-            #auto-adjust exposure with user biases or gain, blend frame if frame differencing and no detection
+            #blend frame if frame differencing and no detection and auto-adjust exposure with user biases or gain
             #wait up to twice expose period
-            if (cfg.EXPOSURE_MODE!="auto" and (pyb.elapsed_millis(self.start_time_blending_ms) > cfg.EXPOSE_PERIOD_S * 1000) and not (cfg.FRAME_DIFF_ENABLED and self.frame_differencer.has_found_blobs)
-            or (cfg.EXPOSURE_MODE!="auto" and (pyb.elapsed_millis(self.start_time_blending_ms) > 2 * cfg.EXPOSE_PERIOD_S * 1000))):
+            if ((cfg.FRAME_DIFF_ENABLED and cfg.EXPOSURE_MODE!="auto") and
+                ((not self.frame_differencer.has_found_blobs and pyb.elapsed_millis(self.start_time_blending_ms) > cfg.EXPOSE_PERIOD_S * 1000)
+                or pyb.elapsed_millis(self.start_time_blending_ms) > 2 * cfg.EXPOSE_PERIOD_S * 1000)):
                 
-                #blend new frame only if frame differencing
-                if (cfg.FRAME_DIFF_ENABLED):
-                    print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(self.start_time_blending_ms)/1000)),"seconds")
-                    #take new picture
-                    frame = self.camera.take_picture(self.is_night, self.clock)
-                    self.frame_differencer.blend_background(frame)
-                    
+                print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(self.start_time_blending_ms)/1000)),"seconds")
+                #take new picture
+                frame = self.camera.take_picture(self.is_night, self.clock)
+                self.frame_differencer.blend_background(frame)
+                
                 #reset blending time counter
                 self.start_time_blending_ms = pyb.millis()
 
