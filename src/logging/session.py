@@ -100,9 +100,10 @@ class Session:
         os.sync()
         os.chdir(self.SDCARD)
         # Check if the session file exists
-        print(f"lisdir(sdcar):", os.listdir())
+        print(f"lisdir({os.getcwd()}):", os.listdir())
 
         if self.SESSION_FILENAME in os.listdir():
+            
             with open(f'{self.SDCARD}/{self.SESSION_FILENAME}', 'r') as file:
                 data = json.load(file)
                 self.path = data['path']
@@ -119,6 +120,8 @@ class Session:
                                 "USB_connected", "core_temperature_C")
             
             return self
+        
+        print("no session.json file found in sdcard")
         
         return None
 

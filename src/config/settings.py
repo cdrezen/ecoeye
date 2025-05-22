@@ -124,7 +124,7 @@ MAX_BLOB_TO_PROCESS=-1
 #sensitivity of the blob detection, as measured by the area (number of pixels) of the blobs. Blobs outside this min-max range will not be logged.
 #Blob areas can be estimated by drawing rectangular selections on the image preview with the mouse; the area will be displayed below
 MIN_BLOB_PIXELS = 3000
-MAX_BLOB_PIXELS = 500000
+MAX_BLOB_PIXELS = 160000
 #color channel thresholds for detection. Pixels with color channel values outside of these ranges will be considered to be blobs.
 #requires at least one tuple for grayscale images (for instance: [(0,5)]), three tuples for RGB565 images (for instance: [(0,3),(-3,3),(-3,3)] - this corresponds to LAB channels)
 BLOB_COLOR_THRESHOLDS = [(0,3),(-3,3),(-3,3)]
@@ -138,7 +138,7 @@ class BlobExportShape:
 #square: exports bounding square with a side length of the longest side of the blob's bounding rectangle
 #None: does not export blobs
 
-BLOBS_EXPORT_METHOD = BlobExportShape.RECTANGLE
+BLOBS_EXPORT_METHOD = BlobExportShape.SQUARE
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
 
