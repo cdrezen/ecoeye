@@ -27,14 +27,13 @@ class App:
         self.exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [1]
         self.illumination = Illumination()
         self.camera = Camera()
-        self.session: Session
+        self.session: Session | None = None
         self.power_mgmt: PowerManagement
         self.is_night = not self.solartime.is_daytime()
         self.frame_differencer: FrameDifferencer
         self.classifier: Classifier
         self.wifi_enabled= cfg.WIFI_ENABLED and wifishield_isconnnected()
-        self.imagelog: ImageLogger
-        self.detectionlog: DetectionLogger
+        self.detectionlog: DetectionLogger | None = None
         
         # perform quick start from sleep check
         start_check()
@@ -55,7 +54,9 @@ class App:
             print_status="Script start - Live view"
 
         self.power_mgmt = PowerManagement(self.illumination, self.session)
-        self.imagelog, self.detectionlog = self.session.imagelog, self.session.detectionlog
+        
+        if self.session:
+            self.detectionlog=self.session.detectionlog
 
         self.power_mgmt.update(self.solartime, print_status)
 
@@ -63,11 +64,13 @@ class App:
         if(cfg.CLASSIFY_MODE != "none"):
             self.classifier = Classifier(self.session)
 
+        winrect = cfg.WIN_RECT if cfg.USE_SENSOR_WINDOWING else None
+
         self.camera.initialize(self.illumination, cfg.SENSOR_PIXFORMAT, cfg.SENSOR_FRAMESIZE,
-                        cfg.WIN_RECT, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
+                        winrect, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
         
-        self.image_width = cfg.WIN_RECT.w if cfg.USE_SENSOR_WINDOWING else sensor.width()
-        self.image_height = cfg.WIN_RECT.h if cfg.USE_SENSOR_WINDOWING else sensor.height()
+        self.image_width = winrect.w if winrect else sensor.width()
+        self.image_height = winrect.h if winrect else sensor.height()
 
         #start counting time
         self.start_time_status_ms = pyb.millis()
@@ -95,9 +98,9 @@ class App:
                 self.process_blobs(blobs, frame)
         
         #log roi image data, possibly classify and save image
-        if(cfg.MODE != Mode.LIVE_VIEW):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
+        if(self.session):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
 
-            frame.log(self.imagelog)
+            frame.log(self.session.imagelog)
             
             #classify image
             if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):
@@ -120,10 +123,11 @@ class App:
             if (cfg.INDICATORS_ENBLED):
                 frame.mark_blob(blob)
             
-            #log each detected blob, we finish the CSV line here if not classifying
-            self.detectionlog.append(frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
+            if self.session:
+                #log each detected blob, we finish the CSV line here if not classifying
+                self.detectionlog.append(frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
 
-            if not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!=None):
+            if not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!=None or not self.session):
                 continue
 
             blob_rect, img_blob = frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)

@@ -20,7 +20,7 @@ class Mode:
 #0: live view. Disables saving pictures, frame differencing, classifying, sleeping, bracketing, delay between pictures. Uses auto-exposure.
 #1: deploy or test (do not override settings listed below)
 #2: live capture. Disables frame differencing, classifying, sleeping, bracketing, delay between pictures. Uses auto-exposure.
-MODE = Mode.DEPLOY
+MODE = Mode.LIVE_VIEW
 
 #whether the power management system is used or not
 POWER_MANAGEMENT_ENABLED = False
@@ -49,7 +49,7 @@ SAVE_ROI_MODE = "none" if MODE == Mode.LIVE_VIEW else "trigger"
 # _____ windowing mode only parameters _____
 #rectangle tuples (x,y coordinates and width and height) for digital zoom. x=0,y=0 is conventionally the upper left corner.
 #windowing_x=324 corresponds to the point from which a central square crop can be taken while using all the vertical resolution of the sensor
-WIN_RECT = Rect(324,0,1944,1944)
+WIN_RECT = None #Rect(324,0,1944,1944)
 # _____ advanced settings _____
 #wether to use user-defined rois (regions of interest)
 USE_ROI = False
@@ -61,7 +61,7 @@ NB_SENSOR_FRAMEBUFFERS = 1
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
 #0: minimum
 #100: maximum
-JPEG_QUALITY = 95
+JPEG_QUALITY = 93
 
 ### EXPOSURE ###
 #exposure control mode. Options:
