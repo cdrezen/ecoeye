@@ -1,5 +1,6 @@
 from hardware.led import LED_WHITE_BLINK, Illumination
 import sensor
+import pyb
 import time
 from config.settings import Mode
 import config.settings as cfg
@@ -15,6 +16,7 @@ class Camera:
     _initialized = False
     EXPOSURE_RESET_TIMEOUT = 2000  # ms
     AFTER_EXPOSURE_TIMEOUT = 300  # ms
+    INIT_TIMEOUT = 1000  # ms
         
     def initialize(self, illumination: Illumination, sensor_pixformat, sensor_framesize, windowing_rect: Rect|None =None, 
                  nb_framebuffers=0, exposure_mode="auto"):
@@ -50,11 +52,15 @@ class Camera:
                 sys.exit("Windowing dim exceeds image dim!")
             sensor.set_windowing((self.windowing_rect.x, self.windowing_rect.y, 
                                   self.windowing_rect.w, self.windowing_rect.h))
+            
+        sensor.skip_frames(time=self.INIT_TIMEOUT)
         
-        if self.nb_framebuffers:
+        if self.nb_framebuffers > 0:
+            print("set fbnb", self.nb_framebuffers)
             sensor.set_framebuffers(self.nb_framebuffers)
 
-        self.last_gain_db = sensor.get_gain_db()
+
+        self.last_gain_db = 0
         self.last_exposure = sensor.get_exposure_us()
 
         self.reset_exposure(Camera.EXPOSURE_RESET_TIMEOUT)
@@ -107,7 +113,7 @@ class Camera:
         if self.illumination and self.illumination.can_turn_off():
             self.illumination.off(message="to save power...")
 
-        self.last_gain_db = sensor.get_gain_db()
+        self.last_gain_db = int(sensor.get_gain_db())
         self.last_exposure = sensor.get_exposure_us()
         
         return vision.frame.Frame(img, time.localtime(), self.last_exposure, self.last_gain_db, clock.fps(), image_type)
@@ -152,8 +158,8 @@ class Camera:
             sensor.set_auto_gain(False, gain_db=cfg.GAIN_DB)
             sensor.set_auto_exposure(False, exposure_us=int(cfg.EXPOSURE_MS * 1000))
         elif self.exposure_mode == "bias":
-            sensor.set_auto_gain(False, gain_db=int(self.last_gain_db))
+            sensor.set_auto_gain(False, gain_db=0)
             sensor.set_auto_exposure(False, exposure_us=self.last_exposure)
-            
+        
         # Wait for auto-adjustment
         sensor.skip_frames(time=timeout)

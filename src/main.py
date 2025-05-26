@@ -69,6 +69,8 @@ class App:
         self.camera.initialize(self.illumination, cfg.SENSOR_PIXFORMAT, cfg.SENSOR_FRAMESIZE,
                         winrect, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
         
+        print("camera initialized")
+        
         self.image_width = winrect.w if winrect else sensor.width()
         self.image_height = winrect.h if winrect else sensor.height()
 
@@ -81,7 +83,8 @@ class App:
         #Frame buffer memory management
         if(cfg.FRAME_DIFF_ENABLED):
             # Initialize the frame differencer
-            self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, cfg.SENSOR_PIXFORMAT, self.imagelog)
+            self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, 
+                                                      cfg.SENSOR_PIXFORMAT, self.session.imagelog)
             frame = self.camera.take_picture(self.solartime.is_daytime(), self.clock, image_type="reference")
             self.frame_differencer.save_reference_image(frame)
 

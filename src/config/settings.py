@@ -20,7 +20,7 @@ class Mode:
 #0: live view. Disables saving pictures, frame differencing, classifying, sleeping, bracketing, delay between pictures. Uses auto-exposure.
 #1: deploy or test (do not override settings listed below)
 #2: live capture. Disables frame differencing, classifying, sleeping, bracketing, delay between pictures. Uses auto-exposure.
-MODE = Mode.LIVE_VIEW
+MODE = Mode.DEPLOY
 
 #whether the power management system is used or not
 POWER_MANAGEMENT_ENABLED = False
@@ -29,13 +29,11 @@ VOLTAGE_DIV_AVAILABLE = True
 
 ### IMAGE ###
 #what resolution to use
-SENSOR_FRAMESIZE = sensor.WQXGA2
+SENSOR_FRAMESIZE = sensor.FHD
 #sensor image format. Options:
 #RGB565 = color
 #GRAYSCALE = black & white)
 SENSOR_PIXFORMAT = sensor.RGB565
-#whether to digitally zoom into image
-USE_SENSOR_WINDOWING = False
 #introduce delay between pictures (seconds). Otherwise with a delay of 0, the camera runs at maximum speed
 PICTURE_DELAY_S = 0 if MODE != Mode.DEPLOY else 0
 #threshold of PICTURE_DELAY_S above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
@@ -47,17 +45,18 @@ SLEEP_THRESHOLD_S = 10
 #detect: save images with model-detected patterns
 SAVE_ROI_MODE = "none" if MODE == Mode.LIVE_VIEW else "trigger"
 # _____ windowing mode only parameters _____
+#whether to digitally zoom into image
+USE_SENSOR_WINDOWING = False
 #rectangle tuples (x,y coordinates and width and height) for digital zoom. x=0,y=0 is conventionally the upper left corner.
 #windowing_x=324 corresponds to the point from which a central square crop can be taken while using all the vertical resolution of the sensor
-WIN_RECT = None #Rect(324,0,1944,1944)
+WIN_RECT = Rect(324,0,1944,1944)
 # _____ advanced settings _____
 #wether to use user-defined rois (regions of interest)
 USE_ROI = False
 #assign roi to entire image if we do not use them
 ROI_RECTS = [(0,0,sensor.width(),sensor.height())] if not USE_ROI else [(197,742,782,753),(1309,1320,560,460)]
-#wether to control number of frame buffers
-USE_SENSOR_FRAMEBUFFERS = False
-NB_SENSOR_FRAMEBUFFERS = 1
+#wether to control number of frame buffers or not (<1)
+NB_SENSOR_FRAMEBUFFERS = 2
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
 #0: minimum
 #100: maximum
