@@ -89,6 +89,8 @@ class App:
         if(cfg.FRAME_DIFF_ENABLED):
             # Process the frame using the frame differencer
             blobs = self.frame_differencer.process_frame(frame)
+            # frame.img.close(sz) #clear mem
+            frame.img.replace(self.frame_differencer.get_original_image()) 
             if blobs:
                 self.process_blobs(blobs, frame)
         
@@ -96,10 +98,6 @@ class App:
         if(cfg.MODE != Mode.LIVE_VIEW):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
 
             frame.log(self.imagelog)
-            if cfg.FRAME_DIFF_ENABLED: 
-                #revert image_roi replacement to get original image for classification or saving
-                frame.img.replace(self.frame_differencer.get_original_image()) 
-
             
             #classify image
             if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):

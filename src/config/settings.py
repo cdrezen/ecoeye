@@ -61,7 +61,7 @@ NB_SENSOR_FRAMEBUFFERS = 1
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
 #0: minimum
 #100: maximum
-JPEG_QUALITY = 93
+JPEG_QUALITY = 95
 
 ### EXPOSURE ###
 #exposure control mode. Options:
@@ -138,7 +138,7 @@ class BlobExportShape:
 #square: exports bounding square with a side length of the longest side of the blob's bounding rectangle
 #None: does not export blobs
 
-BLOBS_EXPORT_METHOD = BlobExportShape.SQUARE
+BLOBS_EXPORT_METHOD = BlobExportShape.RECTANGLE
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
 
