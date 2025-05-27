@@ -23,7 +23,7 @@ class FrameDifferencer:
         self.image_height = image_height
         self.sensor_pixformat = sensor_pixformat
         self.img_ref_fb: image.Image
-        self.img_ori_fb: image.Image
+        self.img_ori_fb: image.Image | None
         self.imagelog = imagelog
         self.has_found_blobs = False
         self.initialize_framebuffers()
@@ -38,7 +38,7 @@ class FrameDifferencer:
         
         # Allocate frame buffers for reference and original images
         self.img_ref_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
-        self.img_ori_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
+        self.img_ori_fb = None # sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
     
     def save_reference_image(self, frame: Frame):
         """
@@ -53,6 +53,7 @@ class FrameDifferencer:
         """
         # Store the image as reference
         self.img_ref_fb.replace(frame.img)
+        
         frame.save_and_log("reference", self.imagelog)
     
     def blend_background(self, frame: Frame):
@@ -94,7 +95,10 @@ class FrameDifferencer:
             blobs: List of detected blobs that triggered detection
         """
         # Save original image
-        self.img_ori_fb.replace(frame.img)
+        if self.img_ori_fb:
+            self.img_ori_fb.replace(frame.img)
+        else:
+            self.img_ori_fb = frame.img
         
         # Compute absolute frame difference
         frame.img.difference(self.img_ref_fb)

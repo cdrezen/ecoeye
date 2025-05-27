@@ -29,7 +29,7 @@ VOLTAGE_DIV_AVAILABLE = True
 
 ### IMAGE ###
 #what resolution to use
-SENSOR_FRAMESIZE = sensor.FHD
+SENSOR_FRAMESIZE = sensor.WQXGA2
 #sensor image format. Options:
 #RGB565 = color
 #GRAYSCALE = black & white)
