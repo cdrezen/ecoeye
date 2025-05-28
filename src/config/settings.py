@@ -29,7 +29,12 @@ VOLTAGE_DIV_AVAILABLE = True
 
 ### IMAGE ###
 #what resolution to use
-SENSOR_FRAMESIZE = sensor.WQXGA2
+# sensor.FHD: 1920x1080 
+# sensor.QHD: 2560x1440 
+# sensor.QXGA: 2048x1536 
+# sensor.WQXGA: 2560x1600 
+# sensor.WQXGA2: 2592x1944 
+SENSOR_FRAMESIZE = sensor.WQXGA
 #sensor image format. Options:
 #RGB565 = color
 #GRAYSCALE = black & white)
@@ -49,7 +54,7 @@ SAVE_ROI_MODE = "none" if MODE == Mode.LIVE_VIEW else "trigger"
 USE_SENSOR_WINDOWING = False
 #rectangle tuples (x,y coordinates and width and height) for digital zoom. x=0,y=0 is conventionally the upper left corner.
 #windowing_x=324 corresponds to the point from which a central square crop can be taken while using all the vertical resolution of the sensor
-WIN_RECT = Rect(324,0,1944,1944)
+WIN_RECT = Rect(960,0,1600,1600)
 # _____ advanced settings _____
 #wether to use user-defined rois (regions of interest)
 USE_ROI = False
@@ -122,7 +127,7 @@ FRAME_DIFF_ENABLED = False if MODE != Mode.DEPLOY else True
 MAX_BLOB_TO_PROCESS=-1
 #sensitivity of the blob detection, as measured by the area (number of pixels) of the blobs. Blobs outside this min-max range will not be logged.
 #Blob areas can be estimated by drawing rectangular selections on the image preview with the mouse; the area will be displayed below
-MIN_BLOB_PIXELS = 3000
+MIN_BLOB_PIXELS = 2000
 MAX_BLOB_PIXELS = 160000
 #color channel thresholds for detection. Pixels with color channel values outside of these ranges will be considered to be blobs.
 #requires at least one tuple for grayscale images (for instance: [(0,5)]), three tuples for RGB565 images (for instance: [(0,3),(-3,3),(-3,3)] - this corresponds to LAB channels)

@@ -1,5 +1,6 @@
 import os
 from config.settings import BlobExportShape
+from hardware.led import led_green
 import image
 import time
 from util import colors
@@ -18,7 +19,7 @@ class Frame:
 
     def __init__(self, img: image.Image, capture_time: time.struct_time, 
                  exposure_us: int, gain_db: float, fps: float,
-                 image_type: str = "", roi_rect=None):
+                 image_type: str = "", roi_rect=None, id=None):
         """
         Initialize the Frame object with an image and its metadata.
 
@@ -37,8 +38,11 @@ class Frame:
         self.fps = fps
         self.image_type = image_type
         self.roi_rect = roi_rect
-        self.id = Frame.id
-        Frame.id += 1
+        if id != None:
+            self.id = id
+        else:
+            self.id = Frame.id
+            Frame.id += 1
 
     @staticmethod
     def set_starting_id(id: int):
@@ -56,14 +60,16 @@ class Frame:
     #     obj._init_identification()
     #     return obj
 
-    def copy(self, x_scale:float=1.0, y_scale:float=1.0, roi:tuple[int, int, int, int]|None=None, rgb_channel:int=-1, alpha:int=256, color_palette=None, alpha_palette=None, hint:int=0, copy_to_fb:float=False):
-        img_copy = self.img.copy(x_scale=x_scale, y_scale=y_scale, roi=roi, rgb_channel=rgb_channel, alpha=alpha, color_palette=color_palette, alpha_palette=alpha_palette, hint=hint, copy_to_fb=copy_to_fb)
-        return Frame(img_copy, self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, self.roi_rect)
+    def copy(self, *args, **kwargs):
+        img_copy = self.img.copy(*args, **kwargs)
+        return Frame(img_copy, self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, self.roi_rect, id=self.id)
+
     
     def get_stats(self, thresholds:list[tuple[int, int]]|None=None, invert=False, roi:tuple[int, int, int, int]|None=None, bins=256, l_bins=256, a_bins=256, b_bins=256, difference:image.Image|None=None):
         return self.img.get_statistics(thresholds=thresholds, invert=invert, roi=roi, bins=bins, l_bins=l_bins, a_bins=a_bins, b_bins=b_bins, difference=difference)
     
-    def save(self, foldername: str, filename: str = ""):
+    @led_green
+    def save(self, foldername: str, filename: str = "",):
         if not filename:
             filename = str(self.id)
         folderpath = f"{Frame.BASE_FOLDER}/{foldername}"
@@ -126,6 +132,4 @@ class Frame:
             blob_rect = (x, y, size, size)
         
         # Extract blob img
-        img_blob = self.img.copy(roi=blob_rect, copy_to_fb=True)
-        
-        return blob_rect, img_blob
+        return Frame(self.img.copy(roi=blob_rect, copy_to_fb=True), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)

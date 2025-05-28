@@ -217,6 +217,18 @@ def LED_CYCLE(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     return
 
+def led_green(func):
+    """
+    Decorator to turn on the green LED before and after the function call.
+    """
+    def wrapper(*args, **kwargs):
+        LED_GREEN_ON()
+        result = func(*args, **kwargs)
+        LED_GREEN_OFF()
+        return result
+    
+    return wrapper
+
 class Illumination:
 
     def __init__(self, mode=cfg.LED_MODE, led_night_mode=cfg.LED_NIGHT_MODE, brightness=cfg.LED_MODULE_BRIGHTNESS_PWM, warmup_ms=cfg.LED_MODULE_WARMUP_MS, cooldown_ms=cfg.LED_MODULE_COOLDOWN_MS):

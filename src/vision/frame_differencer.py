@@ -23,7 +23,6 @@ class FrameDifferencer:
         self.image_height = image_height
         self.sensor_pixformat = sensor_pixformat
         self.img_ref_fb: image.Image
-        self.img_ori_fb: image.Image | None
         self.imagelog = imagelog
         self.has_found_blobs = False
         self.initialize_framebuffers()
@@ -38,7 +37,6 @@ class FrameDifferencer:
         
         # Allocate frame buffers for reference and original images
         self.img_ref_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
-        self.img_ori_fb = None # sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
     
     def save_reference_image(self, frame: Frame):
         """
@@ -82,7 +80,7 @@ class FrameDifferencer:
         frame.save_and_log("reference", self.imagelog)
 
         
-    def process_frame(self, frame: Frame):
+    def find_blobs(self, frame: Frame):
         """
         Process a frame for motion detection with frame differencing.
         
@@ -90,15 +88,9 @@ class FrameDifferencer:
             img: Current image to process
             
         Returns:
-            img_roi: Image with difference applied
-            triggered: Boolean indicating if motion was detected
             blobs: List of detected blobs that triggered detection
+        Sets: self.has_found_blobs to True if blobs are found, False otherwise.
         """
-        # Save original image
-        if self.img_ori_fb:
-            self.img_ori_fb.replace(frame.img)
-        else:
-            self.img_ori_fb = frame.img
         
         # Compute absolute frame difference
         frame.img.difference(self.img_ref_fb)
@@ -123,10 +115,6 @@ class FrameDifferencer:
             print("Memory error in blob detection - assuming triggered")
             
         return blobs_filt
-    
-    def get_original_image(self):
-        """Return the original image framebuffer"""
-        return self.img_ori_fb
         
     def get_reference_image(self):
         """Return the reference image framebuffer"""

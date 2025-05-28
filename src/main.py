@@ -92,29 +92,27 @@ class App:
 
     def process_frame(self, frame: Frame, roi_rect: tuple[int, int, int, int]):
 
+        blobs = []
         if(cfg.FRAME_DIFF_ENABLED):
-            # Process the frame using the frame differencer
-            blobs = self.frame_differencer.process_frame(frame)
-            # frame.img.close(sz) #clear mem
-            frame.img.replace(self.frame_differencer.get_original_image()) 
-            if blobs:
-                self.process_blobs(blobs, frame)
-        
-        #log roi image data, possibly classify and save image
-        if(self.session):#if frame differencing is disabled, every image is considered triggered and counted outside live view mode
+            blobs = self.frame_differencer.find_blobs(frame)
+
+        # save img (and classify if required) before processing to avoid copying
+        if(self.session):
 
             frame.log(self.session.imagelog)
-            
-            #classify image
+
             if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):
                 detected, detection_confidence = self.classifier.classify(frame.img, cfg.CLASSIFY_MODE, roi_rect=roi_rect)
 
-            # saving picture
-            if(cfg.SAVE_ROI_MODE == "all" or (cfg.SAVE_ROI_MODE  == "trigger" and self.frame_differencer.has_found_blobs) or (cfg.SAVE_ROI_MODE == "detect" and detected)):
+            if(cfg.SAVE_ROI_MODE == "all" 
+               or (cfg.SAVE_ROI_MODE  == "trigger" and self.frame_differencer.has_found_blobs)
+               or (cfg.SAVE_ROI_MODE == "detect" and detected)):
                 print("Saving ROI or whole image...")
-                if cfg.INDICATORS_ENBLED: LED_GREEN_ON()
                 frame.save(str('_'.join(map(str,roi_rect))))
-                if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
+                
+        if blobs:
+            self.process_blobs(blobs, frame)
+        
 
     def process_blobs(self, blobs, frame: Frame):
         nb_blobs_to_process = len(blobs) if cfg.MAX_BLOB_TO_PROCESS == -1 else min(cfg.MAX_BLOB_TO_PROCESS, len(blobs))
@@ -129,18 +127,18 @@ class App:
             if self.session:
                 #log each detected blob, we finish the CSV line here if not classifying
                 self.detectionlog.append(frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
+            else: continue
 
-            if not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!=None or not self.session):
+            if (not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!=None)):
                 continue
 
-            blob_rect, img_blob = frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
+            frame_blob = frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
 
             if (cfg.BLOBS_EXPORT_METHOD!=None):
-                if (cfg.INDICATORS_ENBLED): LED_GREEN_ON()
-                frame.save("blobs", str(frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,blob_rect))))
-                if cfg.INDICATORS_ENBLED: LED_GREEN_OFF()
+                filename = str(frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,frame_blob.roi_rect)));
+                frame_blob.save("blobs", filename)
             if (cfg.CLASSIFY_MODE == "blobs"):
-                detected, output = self.classifier.classify(img_blob, cfg.CLASSIFY_MODE)
+                detected, output = self.classifier.classify(frame_blob.img, cfg.CLASSIFY_MODE)
                 self.detectionlog.append(frame.id, labels=self.classifier.labels, confidences=output, rect=blob.rect(), prepend_comma=True)
 
     def run(self):
@@ -209,8 +207,7 @@ class App:
                     self.process_frame(frame, roi_rect=(0,0,self.image_width,self.image_height))
                 else:
                     for roi_rect in cfg.ROI_RECTS:
-                        frame = frame.copy(roi=roi_rect,copy_to_fb=True)
-                        self.process_frame(frame, roi_rect)
+                        self.process_frame(frame.copy(roi=roi_rect,copy_to_fb=True), roi_rect)
 
                 print("Frames per second: %s" % str(round(self.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
             
