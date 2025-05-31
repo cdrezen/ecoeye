@@ -92,12 +92,12 @@ class App:
 
     def process_frame(self, frame: Frame, roi_rect: tuple[int, int, int, int]):
 
-        blobs = []
+        blobs = None
         if(cfg.FRAME_DIFF_ENABLED):
-            # copy at save-quality before differencing it with find_blobs
+            # copy at save-quality before differencing it with find_blobs (image.difference() overwrites)
             jpeg_img = frame.img.to_jpeg(quality=cfg.JPEG_QUALITY, copy=True)
             blobs = self.frame_differencer.find_blobs(frame)
-            diff_img = frame.img
+            diff_frame = Frame(frame.img, frame.capture_time, frame.exposure_us, frame.gain_db, frame.fps, image_type=frame.image_type, roi_rect=roi_rect, id=frame.id)
             frame.img = jpeg_img
 
         # save img (and classify if required) before processing to avoid copying
@@ -115,36 +115,37 @@ class App:
                 frame.save(str('_'.join(map(str,roi_rect))))
                 
         if blobs:
-            self.process_blobs(blobs, frame, diff_img)
+            self.process_blobs(blobs, frame, diff_frame)
         
 
-    def process_blobs(self, blobs, frame: Frame, diff_img: image.Image):
+    def process_blobs(self, blobs, jpeg_frame: Frame, diff_frame: Frame):
         nb_blobs_to_process = len(blobs) if cfg.MAX_BLOB_TO_PROCESS == -1 else min(cfg.MAX_BLOB_TO_PROCESS, len(blobs))
 
         for i in range(0, nb_blobs_to_process):
+            
             blob = blobs[i]
-            # drawing & stats not supported on compressed images...
-            color_statistics = diff_img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
-            #optional marking of blobs
-            # if (cfg.INDICATORS_ENBLED):
-            #     frame.mark_blob(blob)
+            # optional marking of blobs, drawing not supported on compressed images...
+            if (cfg.INDICATORS_ENBLED):
+                diff_frame.mark_blob(blob)
             
             if self.session:
                 #log each detected blob, we finish the CSV line here if not classifying
-                self.detectionlog.append(frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
+                # stats not supported on compressed images...
+                color_statistics = diff_frame.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
+                self.detectionlog.append(diff_frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
             else: continue
 
             if (not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!=None)):
                 continue
 
-            frame_blob = frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
+            frame_blob = jpeg_frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
 
             if (cfg.BLOBS_EXPORT_METHOD!=None):
-                filename = str(frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,frame_blob.roi_rect)));
+                filename = str(jpeg_frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,frame_blob.roi_rect)));
                 frame_blob.save("blobs", filename)
             if (cfg.CLASSIFY_MODE == "blobs"):
                 detected, output = self.classifier.classify(frame_blob.img, cfg.CLASSIFY_MODE)
-                self.detectionlog.append(frame.id, labels=self.classifier.labels, confidences=output, rect=blob.rect(), prepend_comma=True)
+                self.detectionlog.append(jpeg_frame.id, labels=self.classifier.labels, confidences=output, rect=blob.rect(), prepend_comma=True)
 
     def run(self):
         ### MAIN LOOP ###

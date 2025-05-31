@@ -64,9 +64,14 @@ class Frame:
         img_copy = self.img.copy(*args, **kwargs)
         return Frame(img_copy, self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, self.roi_rect, id=self.id)
 
-    
-    def get_stats(self, thresholds:list[tuple[int, int]]|None=None, invert=False, roi:tuple[int, int, int, int]|None=None, bins=256, l_bins=256, a_bins=256, b_bins=256, difference:image.Image|None=None):
-        return self.img.get_statistics(thresholds=thresholds, invert=invert, roi=roi, bins=bins, l_bins=l_bins, a_bins=a_bins, b_bins=b_bins, difference=difference)
+    def to_jpeg(self, quality=90, copy=False):
+        img_jpeg = self.img.to_jpeg(quality=quality, copy=copy)
+        return self if not copy \
+                    else Frame(img_jpeg, self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, self.roi_rect, id=self.id)
+
+
+    def get_statistics(self, *args, **kwargs):
+        return self.img.get_statistics(*args, **kwargs)
     
     @led_green
     def save(self, foldername: str, filename: str = "",):
@@ -133,4 +138,4 @@ class Frame:
             blob_rect = (x, y, size, size)
         
         # Extract blob img
-        return Frame(self.img.copy(roi=blob_rect, copy_to_fb=True), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)
+        return Frame(self.img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)
