@@ -51,7 +51,7 @@ SLEEP_THRESHOLD_S = 10
 SAVE_ROI_MODE = "none" if MODE == Mode.LIVE_VIEW else "trigger"
 # _____ windowing mode only parameters _____
 #whether to digitally zoom into image
-USE_SENSOR_WINDOWING = False
+USE_SENSOR_WINDOWING = True
 #rectangle tuples (x,y coordinates and width and height) for digital zoom. x=0,y=0 is conventionally the upper left corner.
 #windowing_x=324 corresponds to the point from which a central square crop can be taken while using all the vertical resolution of the sensor
 WIN_RECT = Rect(960,0,1600,1600)

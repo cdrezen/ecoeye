@@ -76,6 +76,7 @@ class Frame:
         if not foldername in os.listdir(Frame.BASE_FOLDER):
             os.mkdir(folderpath)
         path = f"{folderpath}/{filename}.jpg"
+        print(f"Saving image to {path}")
         self.img.save(path)
 
     def log(self, imagelog):

@@ -94,6 +94,7 @@ class FrameDifferencer:
         
         # Compute absolute frame difference
         frame.img.difference(self.img_ref_fb)
+        frame.save("dbg")
         
         blobs_filt = []
         self.has_found_blobs = False

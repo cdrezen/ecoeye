@@ -94,7 +94,11 @@ class App:
 
         blobs = []
         if(cfg.FRAME_DIFF_ENABLED):
+            # copy at save-quality before differencing it with find_blobs
+            jpeg_img = frame.img.to_jpeg(quality=cfg.JPEG_QUALITY, copy=True)
             blobs = self.frame_differencer.find_blobs(frame)
+            diff_img = frame.img
+            frame.img = jpeg_img
 
         # save img (and classify if required) before processing to avoid copying
         if(self.session):
@@ -111,18 +115,19 @@ class App:
                 frame.save(str('_'.join(map(str,roi_rect))))
                 
         if blobs:
-            self.process_blobs(blobs, frame)
+            self.process_blobs(blobs, frame, diff_img)
         
 
-    def process_blobs(self, blobs, frame: Frame):
+    def process_blobs(self, blobs, frame: Frame, diff_img: image.Image):
         nb_blobs_to_process = len(blobs) if cfg.MAX_BLOB_TO_PROCESS == -1 else min(cfg.MAX_BLOB_TO_PROCESS, len(blobs))
 
         for i in range(0, nb_blobs_to_process):
             blob = blobs[i]
-            color_statistics = frame.img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
+            # drawing & stats not supported on compressed images...
+            color_statistics = diff_img.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
             #optional marking of blobs
-            if (cfg.INDICATORS_ENBLED):
-                frame.mark_blob(blob)
+            # if (cfg.INDICATORS_ENBLED):
+            #     frame.mark_blob(blob)
             
             if self.session:
                 #log each detected blob, we finish the CSV line here if not classifying
