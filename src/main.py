@@ -24,7 +24,7 @@ class App:
     def __init__(self):
         self.solartime = Suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
         self.rtc = Rtc()
-        self.exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [1]
+        self.exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [None]
         self.illumination = Illumination()
         self.camera = Camera()
         self.session: Session | None = None

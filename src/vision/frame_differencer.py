@@ -94,6 +94,7 @@ class FrameDifferencer:
         
         # Compute absolute frame difference
         frame.img.difference(self.img_ref_fb)
+        frame.img.gaussian(2)  # Apply Gaussian blur to reduce noise
         frame.save("dbg")
         
         blobs_filt = []

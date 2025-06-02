@@ -44,6 +44,7 @@ class Camera:
         sensor.reset()
         sensor.set_pixformat(self.sensor_pixformat)
         sensor.set_framesize(self.sensor_framesize)
+        sensor.set_auto_whitebal(False)
         
         if self.windowing_rect:
             if (windowing_rect.y + windowing_rect.h > sensor.height() or windowing_rect.x + windowing_rect.w > sensor.width()):
