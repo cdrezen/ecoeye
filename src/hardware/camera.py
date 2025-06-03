@@ -60,11 +60,19 @@ class Camera:
             print("set fbnb", self.nb_framebuffers)
             sensor.set_framebuffers(self.nb_framebuffers)
 
+        if cfg.EXPOSURE_START_US > -1:
+            # Set initial exposure time if specified
+            sensor.set_auto_exposure(False, exposure_us=cfg.EXPOSURE_START_US)
+        if cfg.GAIN_START_DB > -1:
+            # Set initial gain if specified
+            sensor.set_auto_gain(False, gain_db=cfg.GAIN_START_DB)
 
-        self.last_gain_db = 0
+        self.last_gain_db = int(sensor.get_gain_db())
         self.last_exposure = sensor.get_exposure_us()
 
         self.reset_exposure(Camera.EXPOSURE_RESET_TIMEOUT)
+
+        print(f"exposure_mode: {self.exposure_mode}, last_exposure: {self.last_exposure}, last_gain_db: {self.last_gain_db}")
         
     
     def get_image_dimensions(self):
@@ -153,11 +161,11 @@ class Camera:
         elif self.exposure_mode == "exposure":
             # Auto gain but fixed exposure
             sensor.set_auto_gain(True)
-            sensor.set_auto_exposure(False, exposure_us=int(cfg.EXPOSURE_MS * 1000))
+            sensor.set_auto_exposure(False, exposure_us=cfg.EXPOSURE_US)
         elif self.exposure_mode == "manual":
             # Set fixed exposure and gain
             sensor.set_auto_gain(False, gain_db=cfg.GAIN_DB)
-            sensor.set_auto_exposure(False, exposure_us=int(cfg.EXPOSURE_MS * 1000))
+            sensor.set_auto_exposure(False, exposure_us=cfg.EXPOSURE_US)
         elif self.exposure_mode == "bias":
             sensor.set_auto_gain(False, gain_db=0)
             sensor.set_auto_exposure(False, exposure_us=self.last_exposure)

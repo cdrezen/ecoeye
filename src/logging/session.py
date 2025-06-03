@@ -53,19 +53,19 @@ class Session:
         if (not "jpegs" in filenames): 
             os.mkdir("jpegs")
 
-        filenames = os.listdir("jpegs")
+        # filenames = os.listdir("jpegs")
 
-        if (cfg.FRAME_DIFF_ENABLED and not "reference" in filenames): 
-            os.mkdir("jpegs/reference")
+        # if (cfg.FRAME_DIFF_ENABLED and not "reference" in filenames): 
+        #     os.mkdir("jpegs/reference")
         
-        if (cfg.BLOBS_EXPORT_METHOD!="none" and not "blobs" in filenames): 
-            os.mkdir("jpegs/blobs")
+        # if (cfg.BLOBS_EXPORT_METHOD!="none" and not "blobs" in filenames): 
+        #     os.mkdir("jpegs/blobs")
 
-        for roi_temp in cfg.ROI_RECTS:
-            subfolder_name = '_'.join(map(str,roi_temp))
-            if (not subfolder_name in filenames): 
-                os.mkdir("jpegs/"+subfolder_name)
-                print("Created ROI",subfolder_name,"subfolder.")
+        # for roi_temp in cfg.ROI_RECTS:
+        #     subfolder_name = '_'.join(map(str,roi_temp))
+        #     if (not subfolder_name in filenames): 
+        #         os.mkdir("jpegs/"+subfolder_name)
+        #         print("Created ROI",subfolder_name,"subfolder.")
  
         self.save()
         return self

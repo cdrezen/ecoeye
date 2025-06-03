@@ -86,6 +86,7 @@ class App:
             self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, 
                                                       cfg.SENSOR_PIXFORMAT, self.session.imagelog)
             frame = self.camera.take_picture(self.solartime.is_daytime(), self.clock, image_type="reference")
+            print("saving ref..")
             self.frame_differencer.save_reference_image(frame)
 
             print("Saved background image - now frame differencing!")

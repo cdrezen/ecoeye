@@ -4,6 +4,7 @@ from hardware.led import led_green
 import image
 import time
 from util import colors
+import config.settings as cfg
 
 class Frame:
     """
@@ -82,7 +83,7 @@ class Frame:
             os.mkdir(folderpath)
         path = f"{folderpath}/{filename}.jpg"
         print(f"Saving image to {path}")
-        self.img.save(path)
+        self.img.save(path, quality=cfg.JPEG_QUALITY)
 
     def log(self, imagelog):
         imagelog.append(self)

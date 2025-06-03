@@ -76,6 +76,9 @@ JPEG_QUALITY = 93
 EXPOSURE_MODE = "auto" if MODE != Mode.DEPLOY else "bias"
 #wether to use exposure bracketing
 USE_EXPOSURE_BRACKETING = False if MODE != Mode.DEPLOY else False
+# if > -1 start with this exposure an gain:
+EXPOSURE_START_US = -1
+GAIN_START_DB = -1
 # _____ bias mode only parameters _____
 #settings for bias mode: This is the user-defined multiplicative bias for the exposure time. Multiplies the automatic exposure time with this value. Values above 1 brighten the image, values below 1 darken it.
 #for instance, if your subject has a bright background (e.g., sky) during the day, you may use values above 1 for the day bias
@@ -86,9 +89,9 @@ EXPOSURE_BIAS_NIGHT = 1
 GAIN_BIAS = 1
 # _____ manual or exposure mode only parameters _____
 #setting for manual and exposure mode:
-EXPOSURE_MS = 20
+EXPOSURE_US = 100
 #setting for manual mode:
-GAIN_DB = 24
+GAIN_DB = 10
 # ⚊⚊⚊⚊⚊ advanced settings ⚊⚊⚊⚊⚊
 # How often to adjust exposure, if not in manual or auto mode
 EXPOSE_PERIOD_S = 10
