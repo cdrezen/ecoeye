@@ -247,4 +247,8 @@ class App:
 # Create and run the application
 if __name__ == "__main__":
     app = App()
-    app.run()
+    try:
+        app.run()
+    except Exception as e:
+        with open("error_log.txt", "a") as f:
+            f.write(f"Error: {e}\n")
