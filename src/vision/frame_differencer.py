@@ -4,6 +4,7 @@ import sensor, image
 import config.settings as cfg
 from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
 from vision.frame import Frame
+import pyb
 
 class FrameDifferencer:
     """
@@ -32,34 +33,32 @@ class FrameDifferencer:
     def initialize_framebuffers(self):
         """Allocate frame buffers for reference and original images"""
         # De-allocate frame buffers just in case
-        sensor.dealloc_extra_fb()
-        sensor.dealloc_extra_fb()
-        
-        # Allocate frame buffers for reference and original images
+        sensor.dealloc_extra_fb()  
+        # Allocate frame buffers for reference images
         self.img_ref_fb = sensor.alloc_extra_fb(self.image_width, self.image_height, self.sensor_pixformat)
     
-    def save_reference_image(self, frame: Frame):
+    def set_reference_image(self, frame: Frame):
         """
         Save the current image as the reference image
         
         Args:
-            img: Current image to use as reference
-            current_folder: Folder where to save the reference image
-            picture_count: Current picture count
-            imagelog: Logger for image data
-            picture_time: Time when the picture was taken
+            frame: Frame object containing the current image to save as reference
         """
         # Store the image as reference
         self.img_ref_fb.replace(frame.img)
-        
         frame.save_and_log("reference", self.imagelog)
+        self.start_time_blending_ms = pyb.millis()
+
+    def get_reference_image(self):
+        """Return the reference image framebuffer"""
+        return self.img_ref_fb
     
     def blend_background(self, frame: Frame):
         """
         Blend the new image into the background reference
         
         Args:
-            img: New image to blend with reference
+            frame: Frame object containing the new image to blend into the background
         """
 
         if cfg.INDICATORS_ENBLED: LED_CYAN_ON()
@@ -79,6 +78,22 @@ class FrameDifferencer:
         # Save reference image to disk
         frame.save_and_log("reference", self.imagelog)
 
+        self.start_time_blending_ms = pyb.millis()
+        return
+
+    def difference(self, frame: Frame):
+        """
+        Compute the absolute difference between the current frame and the reference image.
+        Post process the difference image to reduce noise and enhance contrast.
+        
+        Args:
+            frame: Frame object containing the current image to process
+        """
+        # Compute absolute frame difference
+        frame.img.difference(self.img_ref_fb)
+        frame.img.gaussian(2)  # Apply Gaussian blur to reduce noise
+        # frame.img.gamma(2.0)  # Apply gamma correction to enhance contrast
+        return frame
         
     def find_blobs(self, frame: Frame):
         """
@@ -92,33 +107,48 @@ class FrameDifferencer:
         Sets: self.has_found_blobs to True if blobs are found, False otherwise.
         """
         
-        # Compute absolute frame difference
-        frame.img.difference(self.img_ref_fb)
-        frame.img.gaussian(2)  # Apply Gaussian blur to reduce noise
-        frame.save("dbg")
-        
-        blobs_filt = []
+        self.difference(frame)
+
+        blobs: list[image.blob]
         self.has_found_blobs = False
-        
+
         try:
             # Find blobs in the difference image
             blobs = frame.img.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert=True, merge=False, pixels_threshold=cfg.MIN_BLOB_PIXELS)
-            
-            # Filter blobs with maximum pixels condition
-            blobs_filt = [b for b in blobs if b.pixels() < cfg.MAX_BLOB_PIXELS]
-            
-            if len(blobs_filt) > 0:
-                print(f"{len(blobs_filt)} blob(s) within range!")
-                self.has_found_blobs = True
-                
         except MemoryError:
-            # When there is a memory error, we assume that it is triggered because of many blobs
             self.has_found_blobs = True
             print("Memory error in blob detection - assuming triggered")
-            
-        return blobs_filt
         
-    def get_reference_image(self):
-        """Return the reference image framebuffer"""
-        return self.img_ref_fb
+        # filter blobs with maximum pixels condition
+        blobs = [b for b in blobs if b.pixels() < cfg.MAX_BLOB_PIXELS]
+
+        if len(blobs) > 0:
+            print(f"{len(blobs)} blob(s) within range!")
+            self.has_found_blobs = True
+
+        return blobs
     
+    def update(self, frame: Frame):
+        """
+        Update the frame differencer with a new frame.
+        
+        Args:
+            frame: Frame object containing the new image to process
+        """
+        
+        # If no reference image is set, set the current image as reference
+        if self.img_ref_fb == None or self.has_found_blobs:
+            self.set_reference_image(frame)
+            return
+        elif pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS:
+            self.blend_background(frame)
+            return
+
+        # copy at save-quality before differencing it (image.difference() overwrites)
+        jpeg_img = frame.img.to_jpeg(quality=cfg.JPEG_QUALITY, copy=True)
+        self.difference(frame)
+        blobs = self.find_blobs(frame)
+
+        
+        
+            

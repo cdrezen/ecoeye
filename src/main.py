@@ -87,7 +87,7 @@ class App:
                                                       cfg.SENSOR_PIXFORMAT, self.session.imagelog)
             frame = self.camera.take_picture(self.solartime.is_daytime(), self.clock, image_type="reference")
             print("saving ref..")
-            self.frame_differencer.save_reference_image(frame)
+            self.frame_differencer.set_reference_image(frame)
 
             print("Saved background image - now frame differencing!")
 
@@ -191,8 +191,8 @@ class App:
             #blend frame if frame differencing and no detection and auto-adjust exposure with user biases or gain
             #wait up to twice expose period
             if ((cfg.FRAME_DIFF_ENABLED and cfg.EXPOSURE_MODE!="auto") and
-                ((not self.frame_differencer.has_found_blobs and pyb.elapsed_millis(self.start_time_blending_ms) > cfg.EXPOSE_PERIOD_S * 1000)
-                or pyb.elapsed_millis(self.start_time_blending_ms) > 2 * cfg.EXPOSE_PERIOD_S * 1000)):
+                ((not self.frame_differencer.has_found_blobs and pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS)
+                or pyb.elapsed_millis(self.start_time_blending_ms) > 2 * cfg.BLEND_TIMEOUT_MS)):
                 
                 print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(self.start_time_blending_ms)/1000)),"seconds")
                 #take new picture

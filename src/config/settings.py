@@ -94,7 +94,7 @@ EXPOSURE_US = 100
 GAIN_DB = 10
 # ⚊⚊⚊⚊⚊ advanced settings ⚊⚊⚊⚊⚊
 # How often to adjust exposure, if not in manual or auto mode
-EXPOSE_PERIOD_S = 10
+BLEND_TIMEOUT_MS = 20000
 # multiplicative exposure factors used for exposure bracketing, given in tuple. Sequence matters. Lowers frames per second.
 EXPOSURE_BRACKETING_VALUES = [1,0.5,2]
 
@@ -133,8 +133,8 @@ MAX_BLOB_TO_PROCESS=-1
 MIN_BLOB_PIXELS = 2000
 MAX_BLOB_PIXELS = 160000
 #color channel thresholds for detection. Pixels with color channel values outside of these ranges will be considered to be blobs.
-#requires at least one tuple for grayscale images (for instance: [(0,5)]), three tuples for RGB565 images (for instance: [(0,3),(-3,3),(-3,3)] - this corresponds to LAB channels)
-BLOB_COLOR_THRESHOLDS = [(0,2),(-3,4),(-6,3)]
+#requires at least one tuple with 2 values for grayscale images (for instance: [(0,5)]), with 6 values for RGB565 images (for instance: [(0,3,-3,3,-3,3)] - this corresponds to min and max values for L, A and B channels)
+BLOB_COLOR_THRESHOLDS = [(0, 2, -3, 4, -6, 3)]
 
 class BlobExportShape:
     RECTANGLE = 0
