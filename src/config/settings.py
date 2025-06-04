@@ -61,7 +61,7 @@ USE_ROI = False
 #assign roi to entire image if we do not use them
 ROI_RECTS = [(0,0,sensor.width(),sensor.height())] if not USE_ROI else [(197,742,782,753),(1309,1320,560,460)]
 #wether to control number of frame buffers or not (<1)
-NB_SENSOR_FRAMEBUFFERS = 2
+NB_SENSOR_FRAMEBUFFERS = 1
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
 #0: minimum
 #100: maximum
@@ -130,11 +130,11 @@ FRAME_DIFF_ENABLED = False if MODE != Mode.DEPLOY else True
 MAX_BLOB_TO_PROCESS=-1
 #sensitivity of the blob detection, as measured by the area (number of pixels) of the blobs. Blobs outside this min-max range will not be logged.
 #Blob areas can be estimated by drawing rectangular selections on the image preview with the mouse; the area will be displayed below
-MIN_BLOB_PIXELS = 2000
-MAX_BLOB_PIXELS = 160000
+MIN_BLOB_PIXELS = 75*75
+MAX_BLOB_PIXELS = 500*500
 #color channel thresholds for detection. Pixels with color channel values outside of these ranges will be considered to be blobs.
 #requires at least one tuple with 2 values for grayscale images (for instance: [(0,5)]), with 6 values for RGB565 images (for instance: [(0,3,-3,3,-3,3)] - this corresponds to min and max values for L, A and B channels)
-BLOB_COLOR_THRESHOLDS = [(0, 2, -3, 4, -6, 3)]
+BLOB_COLOR_THRESHOLDS = [(0, 2, -6, 6, -6, 6)]
 
 class BlobExportShape:
     RECTANGLE = 0
@@ -176,7 +176,7 @@ THRESHOLD_IMAGE_SCALE_DEFER = 0.5
 
 ### INDICATORS ###
 #wether to show the LED signals and image markings. initialising, waking, sleeping, and regular blinking LED signals, as well as warnings are not affected
-INDICATORS_ENBLED = True
+INDICATORS_ENABLED = True
 #how often to save status log
 LOG_STATUS_PERIOD_MS = 10*60*1000 
 # ______ advanced settings _____

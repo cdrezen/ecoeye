@@ -102,7 +102,7 @@ class Frame:
         self.img.draw_rectangle(*blob.rect(), color=rect_color, thickness=thickness)
         return self
     
-    def extract_blob_region(self, blob, shape: BlobExportShape = BlobExportShape.RECTANGLE):
+    def extract_blob_region(self, blob, shape: BlobExportShape = BlobExportShape.RECTANGLE, img = None):
         """
         Extract the region of interest around a blob
         
@@ -138,5 +138,8 @@ class Frame:
             
             blob_rect = (x, y, size, size)
         
-        # Extract blob img
-        return Frame(self.img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)
+        # Extract blob region from the image
+        if not img:
+            return Frame(self.img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)
+        else:
+            return Frame(img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)

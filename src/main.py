@@ -1,14 +1,10 @@
-# Blob detection and image classification with whole image, image subsets, ROI, or blob-detected bounding rectangles
-
 # import user defined parameters
 import config.settings as cfg
 from config.settings import Mode
 #import libraries
 from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
-from logging.image_logger import ImageLogger
-import sensor, image, time, os, tf, pyb, machine, sys, gc, math
-from pyb import Pin, Timer
+import sensor, time, tf, pyb, machine, image
 # import external functions
 from ecofunctions import *
 from hardware.power import PowerManagement
@@ -76,7 +72,6 @@ class App:
 
         #start counting time
         self.start_time_status_ms = pyb.millis()
-        self.start_time_blending_ms = pyb.millis()
         self.start_time_active_LED_ms = pyb.millis()
         self.clock = time.clock()
 
@@ -84,70 +79,43 @@ class App:
         if(cfg.FRAME_DIFF_ENABLED):
             # Initialize the frame differencer
             self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, 
-                                                      cfg.SENSOR_PIXFORMAT, self.session.imagelog)
-            frame = self.camera.take_picture(self.solartime.is_daytime(), self.clock, image_type="reference")
-            print("saving ref..")
-            self.frame_differencer.set_reference_image(frame)
+                                                      cfg.SENSOR_PIXFORMAT, self, self.session)
 
-            print("Saved background image - now frame differencing!")
-
-    def process_frame(self, frame: Frame, roi_rect: tuple[int, int, int, int]):
-
-        blobs = None
-        if(cfg.FRAME_DIFF_ENABLED):
-            # copy at save-quality before differencing it with find_blobs (image.difference() overwrites)
-            jpeg_img = frame.img.to_jpeg(quality=cfg.JPEG_QUALITY, copy=True)
-            blobs = self.frame_differencer.find_blobs(frame)
-            diff_frame = Frame(frame.img, frame.capture_time, frame.exposure_us, frame.gain_db, frame.fps, image_type=frame.image_type, roi_rect=roi_rect, id=frame.id)
-            frame.img = jpeg_img
-
-        # save img (and classify if required) before processing to avoid copying
-        if(self.session):
-
-            frame.log(self.session.imagelog)
-
-            if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):
-                detected, detection_confidence = self.classifier.classify(frame.img, cfg.CLASSIFY_MODE, roi_rect=roi_rect)
-
-            if(cfg.SAVE_ROI_MODE == "all" 
-               or (cfg.SAVE_ROI_MODE  == "trigger" and self.frame_differencer.has_found_blobs)
-               or (cfg.SAVE_ROI_MODE == "detect" and detected)):
-                print("Saving ROI or whole image...")
-                frame.save(str('_'.join(map(str,roi_rect))))
-                
-        if blobs:
-            self.process_blobs(blobs, frame, diff_frame)
+    def on_triggered(self, jpeg_frame : Frame):
+        """
+        Called when motion/blobs were found on a frame. Before blob processing.
         
+        Args:
+            frame: Frame object containing the image that triggered the event
+        """
+        pass
 
-    def process_blobs(self, blobs, jpeg_frame: Frame, diff_frame: Frame):
-        nb_blobs_to_process = len(blobs) if cfg.MAX_BLOB_TO_PROCESS == -1 else min(cfg.MAX_BLOB_TO_PROCESS, len(blobs))
+    def on_blob_found(self, jpeg_frame: Frame, blob: image.blob):
+        """
+        Called when a blob has been processed by the frame differencer.
+        
+        Args:
+            frame: Frame object containing the image with the processed blob
+            blob: The blob that was processed
+        """
+        if (cfg.CLASSIFY_MODE != "blobs" and cfg.BLOBS_EXPORT_METHOD==None):
+            return
 
-        for i in range(0, nb_blobs_to_process):
-            
-            blob = blobs[i]
-            # optional marking of blobs, drawing not supported on compressed images...
-            if (cfg.INDICATORS_ENBLED):
-                diff_frame.mark_blob(blob)
-            
-            if self.session:
-                #log each detected blob, we finish the CSV line here if not classifying
-                # stats not supported on compressed images...
-                color_statistics = diff_frame.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
-                self.detectionlog.append(diff_frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
-            else: continue
+        frame_blob = jpeg_frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
 
-            if (not (cfg.CLASSIFY_MODE == "blobs" or cfg.BLOBS_EXPORT_METHOD!=None)):
-                continue
+        if (cfg.BLOBS_EXPORT_METHOD!=None):
+            filename = str(jpeg_frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,frame_blob.roi_rect)));
+            frame_blob.save("blobs", filename)
+        if (cfg.CLASSIFY_MODE == "blobs"):
+            detected, output = self.classifier.classify(frame_blob.img, cfg.CLASSIFY_MODE)
+            self.detectionlog.append(jpeg_frame.id, labels=self.classifier.labels, confidences=output, rect=blob.rect(), prepend_comma=True)
 
-            frame_blob = jpeg_frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
-
-            if (cfg.BLOBS_EXPORT_METHOD!=None):
-                filename = str(jpeg_frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,frame_blob.roi_rect)));
-                frame_blob.save("blobs", filename)
-            if (cfg.CLASSIFY_MODE == "blobs"):
-                detected, output = self.classifier.classify(frame_blob.img, cfg.CLASSIFY_MODE)
-                self.detectionlog.append(jpeg_frame.id, labels=self.classifier.labels, confidences=output, rect=blob.rect(), prepend_comma=True)
-
+    def on_background_reset(self):
+        """
+        Called when the background reference image is reset.
+        """
+        pass
+        
     def run(self):
         ### MAIN LOOP ###
         while(True):
@@ -188,39 +156,26 @@ class App:
                 print("Blinking LED indicator after",str(cfg.ACTIVE_LED_INTERVAL_MS/1000),"seconds")
                 LED_BLUE_BLINK(cfg.ACTIVE_LED_DURATION_MS)
 
-            #blend frame if frame differencing and no detection and auto-adjust exposure with user biases or gain
-            #wait up to twice expose period
-            if ((cfg.FRAME_DIFF_ENABLED and cfg.EXPOSURE_MODE!="auto") and
-                ((not self.frame_differencer.has_found_blobs and pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS)
-                or pyb.elapsed_millis(self.start_time_blending_ms) > 2 * cfg.BLEND_TIMEOUT_MS)):
-                
-                print("Blending new frame, saving background image after",str(round(pyb.elapsed_millis(self.start_time_blending_ms)/1000)),"seconds")
-                #take new picture
-                frame = self.camera.take_picture(self.is_night, self.clock)
-                self.frame_differencer.blend_background(frame)
-                
-                #reset blending time counter
-                self.start_time_blending_ms = pyb.millis()
 
             ### Take and process picture(s) ###
-            #loop over exposure values
-            for exposure_mult in self.exposure_values:
-
-                frame = self.camera.take_picture(self.is_night, self.clock, exposure_mult=exposure_mult)
-
-                #start cycling over ROIs
-                # cfg.ROIS_RECT) length==1 if cfg.USE_ROI==False
-                if (not cfg.USE_ROI):
-                    self.process_frame(frame, roi_rect=(0,0,self.image_width,self.image_height))
-                else:
-                    for roi_rect in cfg.ROI_RECTS:
-                        self.process_frame(frame.copy(roi=roi_rect,copy_to_fb=True), roi_rect)
-
-                print("Frames per second: %s" % str(round(self.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
             
-            #turn auto image adjustments back on if bracketing
-            if (cfg.USE_EXPOSURE_BRACKETING):
-                self.camera.reset_exposure()
+            frame = self.camera.take_picture(self.is_night, self.clock)
+            
+            if(self.frame_differencer):
+                frame = self.frame_differencer.update(frame)
+
+            if(self.session):
+                frame.log(self.session.imagelog) ### keep in main
+
+                if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):
+                    detected, detection_confidence = self.classifier.classify(frame.img, cfg.CLASSIFY_MODE, roi_rect=frame.roi_rect)
+
+                if(cfg.SAVE_ROI_MODE == "all" 
+                or (cfg.SAVE_ROI_MODE  == "trigger" and self.frame_differencer.has_found_blobs)
+                or (cfg.SAVE_ROI_MODE == "detect" and detected)):
+                    frame.save("img")
+
+            print("Frames per second: %s" % str(round(self.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
 
             ### delay loop execution to control frame rate: ###
 
@@ -247,8 +202,10 @@ class App:
 # Create and run the application
 if __name__ == "__main__":
     app = App()
-    try:
-        app.run()
-    except Exception as e:
-        with open("error_log.txt", "a") as f:
-            f.write(f"Error: {e}\n")
+    # try:
+    app.run()
+    # except Exception as e:
+    #     with open("error_log.txt", "a") as f:
+    #         error_str = f"Error: {e}\n{e.args}\n"
+    #         print(error_str)
+    #         f.write(error_str)

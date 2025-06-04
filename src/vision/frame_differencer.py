@@ -1,17 +1,14 @@
-# filepath: /home/user/Bureau/stage/projet/src/vision/frame_differencer.py
-
-import sensor, image
+import sensor, image, pyb
 import config.settings as cfg
 from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
 from vision.frame import Frame
-import pyb
 
 class FrameDifferencer:
     """
     Handles frame differencing functionality for motion detection.
     """
 
-    def __init__(self, image_width, image_height, sensor_pixformat, imagelog):
+    def __init__(self, image_width: int, image_height: int, sensor_pixformat, listener, session=None):
         """
         Initialize the frame differencer with reference and original framebuffers.
         
@@ -23,8 +20,13 @@ class FrameDifferencer:
         self.image_width = image_width
         self.image_height = image_height
         self.sensor_pixformat = sensor_pixformat
+        self.listener = listener
+        self.session = session
+        if session:
+            self.detectionlog = session.detectionlog
+            self.imagelog = session.imagelog
         self.img_ref_fb: image.Image
-        self.imagelog = imagelog
+        self.started = False
         self.has_found_blobs = False
         self.initialize_framebuffers()
         if (cfg.EXPOSURE_MODE=="auto"): 
@@ -61,7 +63,7 @@ class FrameDifferencer:
             frame: Frame object containing the new image to blend into the background
         """
 
-        if cfg.INDICATORS_ENBLED: LED_CYAN_ON()
+        if cfg.INDICATORS_ENABLED: LED_CYAN_ON()
 
         # Blend in new frame. We're doing 256-alpha here because we want to
         # blend the new frame into the background. Not the background into the
@@ -73,7 +75,7 @@ class FrameDifferencer:
         frame.img.blend(self.img_ref_fb, alpha=(256-cfg.BACKGROUND_BLEND_LEVEL))
         self.img_ref_fb.replace(frame.img)
 
-        if cfg.INDICATORS_ENBLED: LED_CYAN_OFF()
+        if cfg.INDICATORS_ENABLED: LED_CYAN_OFF()
 
         # Save reference image to disk
         frame.save_and_log("reference", self.imagelog)
@@ -95,7 +97,7 @@ class FrameDifferencer:
         # frame.img.gamma(2.0)  # Apply gamma correction to enhance contrast
         return frame
         
-    def find_blobs(self, frame: Frame):
+    def find_blobs(self, diff_frame: Frame):
         """
         Process a frame for motion detection with frame differencing.
         
@@ -106,15 +108,13 @@ class FrameDifferencer:
             blobs: List of detected blobs that triggered detection
         Sets: self.has_found_blobs to True if blobs are found, False otherwise.
         """
-        
-        self.difference(frame)
 
         blobs: list[image.blob]
         self.has_found_blobs = False
 
         try:
             # Find blobs in the difference image
-            blobs = frame.img.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert=True, merge=False, pixels_threshold=cfg.MIN_BLOB_PIXELS)
+            blobs = diff_frame.img.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert=True, merge=False, pixels_threshold=cfg.MIN_BLOB_PIXELS)
         except MemoryError:
             self.has_found_blobs = True
             print("Memory error in blob detection - assuming triggered")
@@ -128,6 +128,26 @@ class FrameDifferencer:
 
         return blobs
     
+    def process_blobs(self, blobs: list[image.blob], jpeg_frame: Frame, diff_frame: Frame, mark: bool = cfg.INDICATORS_ENABLED):
+        
+        nb_blobs_to_process = len(blobs) if cfg.MAX_BLOB_TO_PROCESS == -1 else min(cfg.MAX_BLOB_TO_PROCESS, len(blobs))
+
+        for i in range(0, nb_blobs_to_process):
+            
+            blob = blobs[i]
+            # optional marking of blobs, drawing not supported on compressed images...
+            if (mark):
+                diff_frame.mark_blob(blob)
+            
+            if self.session:
+                # log each detected blob, we finish the CSV line here if not classifying
+                # stats not supported on compressed images...
+                color_statistics = diff_frame.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
+                self.detectionlog.append(diff_frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
+            
+            self.listener.on_blob_found(jpeg_frame, blob)
+
+    
     def update(self, frame: Frame):
         """
         Update the frame differencer with a new frame.
@@ -136,18 +156,36 @@ class FrameDifferencer:
             frame: Frame object containing the new image to process
         """
         
-        # If no reference image is set, set the current image as reference
-        if self.img_ref_fb == None or self.has_found_blobs:
+        # If no reference image is set or there was any change precedently, set the current image as reference
+        if (not self.started):
             self.set_reference_image(frame)
-            return
-        elif pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS:
+            self.has_found_blobs = False
+            self.started = True
+            self.listener.on_background_reset()
+            return frame
+        # If the reference image is set, check if we need to blend the background
+        # TODO: track detections rects and blend on no movement, multi blobs: mask?
+        elif (pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS):
             self.blend_background(frame)
-            return
+            self.has_found_blobs = False
+            return frame
 
         # copy at save-quality before differencing it (image.difference() overwrites)
-        jpeg_img = frame.img.to_jpeg(quality=cfg.JPEG_QUALITY, copy=True)
-        self.difference(frame)
-        blobs = self.find_blobs(frame)
+        jpeg_frame = frame.to_jpeg(quality=cfg.JPEG_QUALITY, copy=True)
+        diff_frame = Frame(frame.img, frame.capture_time, frame.exposure_us, frame.gain_db, frame.fps, frame.image_type, frame.roi_rect, id=frame.id)
+        
+        self.difference(diff_frame)
+        diff_frame.save("diff")
+        blobs = self.find_blobs(diff_frame)
+
+        if self.has_found_blobs:
+            self.listener.on_triggered(jpeg_frame)
+
+        if not blobs: return jpeg_frame
+
+        self.process_blobs(blobs, jpeg_frame, diff_frame)
+
+        return jpeg_frame
 
         
         
