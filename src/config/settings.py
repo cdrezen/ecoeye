@@ -56,10 +56,6 @@ USE_SENSOR_WINDOWING = True
 #windowing_x=324 corresponds to the point from which a central square crop can be taken while using all the vertical resolution of the sensor
 WIN_RECT = Rect(960,0,1600,1600)
 # _____ advanced settings _____
-#wether to use user-defined rois (regions of interest)
-USE_ROI = False
-#assign roi to entire image if we do not use them
-ROI_RECTS = [(0,0,sensor.width(),sensor.height())] if not USE_ROI else [(197,742,782,753),(1309,1320,560,460)]
 #wether to control number of frame buffers or not (<1)
 NB_SENSOR_FRAMEBUFFERS = 1
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
@@ -74,8 +70,6 @@ JPEG_QUALITY = 93
 #exposure: fixing exposure time, while adjusting gain at regular intervals (time period can be defined below)
 #manual: fixing exposure time and gain
 EXPOSURE_MODE = "auto" if MODE != Mode.DEPLOY else "bias"
-#wether to use exposure bracketing
-USE_EXPOSURE_BRACKETING = False if MODE != Mode.DEPLOY else False
 # if > -1 start with this exposure an gain:
 EXPOSURE_START_US = -1
 GAIN_START_DB = -1
@@ -94,9 +88,7 @@ EXPOSURE_US = 100
 GAIN_DB = 10
 # ⚊⚊⚊⚊⚊ advanced settings ⚊⚊⚊⚊⚊
 # How often to adjust exposure, if not in manual or auto mode
-BLEND_TIMEOUT_MS = 20000
-# multiplicative exposure factors used for exposure bracketing, given in tuple. Sequence matters. Lowers frames per second.
-EXPOSURE_BRACKETING_VALUES = [1,0.5,2]
+
 
 ### ILLUMINATION LED ###
 #wether the light shield or IR LED module is installed
@@ -149,6 +141,7 @@ BLOBS_EXPORT_METHOD = BlobExportShape.RECTANGLE
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
 
+BLEND_TIMEOUT_MS = 10000
 ### NEURAL NETWORKS ###
 #wether to us neural networks to analyse the image. options:
 #image: classify the whole image (i.e. image classification)

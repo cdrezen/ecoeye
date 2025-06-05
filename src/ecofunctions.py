@@ -214,7 +214,7 @@ def deep_sleep(sleep_time):
     # compute deep sleep end time in epoch seconds
     dsleep_wakeup_epoch = time.mktime(time.localtime()) + math.floor(sleep_time/1000)
     # create deep sleep wakeup file and write epoch seconds as string
-    with open('/VAR/dsleepwakeup.txt', 'w') as timelog:
+    with open('/sdcard/VAR/dsleepwakeup.txt', 'w') as timelog:
         timelog.write(str(dsleep_wakeup_epoch))
     # define sleep time and go to sleep
     pyb.RTC().wakeup(math.floor(sleep_time/1000)*1000)
@@ -246,11 +246,11 @@ def indicator_dsleep(sleep_time,active_LED_interval_ms):
         # compute deep sleep end time in epoch seconds
         dsleep_end_epoch = time.mktime(time.localtime()) + math.floor(sleep_time/1000)
         # create deep sleep end file and write epoch seconds as string
-        with open('/VAR/dsleepend.txt', 'w') as timelog:
+        with open('/sdcard/VAR/dsleepend.txt', 'w') as timelog:
             timelog.write(str(dsleep_end_epoch))
     else:
         # get wakeup time from file
-        with open('/VAR/dsleepend.txt', 'r') as timefetch:
+        with open('/sdcard/VAR/dsleepend.txt', 'r') as timefetch:
             dsleep_end_epoch = eval(timefetch.read())
 
     # compute deep sleep interval wakeup time in epoch seconds
@@ -263,7 +263,7 @@ def indicator_dsleep(sleep_time,active_LED_interval_ms):
         nap_time = active_LED_interval_ms
 
     # create deep sleep wakeup file and write deep sleep wakeup epoch
-    with open('/VAR/dsleepwakeup.txt', 'w') as timelog:
+    with open('/sdcard/VAR/dsleepwakeup.txt', 'w') as timelog:
         timelog.write(str(dsleep_wakeup_epoch))
     # define sleep time and go
     pyb.RTC().wakeup(math.floor(nap_time/1000)*1000)
@@ -285,11 +285,11 @@ def start_check():
     if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
         print("Starting script from DEEP SLEEP")
         # get wakeup time from file
-        with open('/VAR/dsleepwakeup.txt', 'r') as timefetch:
+        with open('/sdcard/VAR/dsleepwakeup.txt', 'r') as timefetch:
             dsleep_wakeup_epoch = eval(timefetch.read())
         # check if woke up from indicator sleep, i.e. if dsleepend file exists
         if('dsleepend.txt' in os.listdir('VAR')):
-            with open('/VAR/dsleepend.txt', 'r') as timefetch:
+            with open('/sdcard/VAR/dsleepend.txt', 'r') as timefetch:
                 dsleep_end_epoch = eval(timefetch.read())
 
         # epoch seconds to time tuple to rtc tuple

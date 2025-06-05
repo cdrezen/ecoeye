@@ -165,7 +165,7 @@ class FrameDifferencer:
             return frame
         # If the reference image is set, check if we need to blend the background
         # TODO: track detections rects and blend on no movement, multi blobs: mask?
-        elif (pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS):
+        elif (self.has_found_blobs or pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS):
             self.blend_background(frame)
             self.has_found_blobs = False
             return frame

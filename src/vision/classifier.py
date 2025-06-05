@@ -107,10 +107,6 @@ class Classifier:
     def detect_objects(self, img, use_indicators=True):
         """Detect objects with thresholding"""
 
-        if(cfg.USE_ROI): 
-            print("Object detection skipped, as it is not compatible with using ROIs!")
-            return False, 0
-
         threshold_value = math.ceil(self.threshold_confidence * 255)
         confidence = 0
         detected = False

@@ -20,7 +20,6 @@ class App:
     def __init__(self):
         self.solartime = Suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
         self.rtc = Rtc()
-        self.exposure_values = cfg.EXPOSURE_BRACKETING_VALUES if cfg.USE_EXPOSURE_BRACKETING else [None]
         self.illumination = Illumination()
         self.camera = Camera()
         self.session: Session | None = None
@@ -202,10 +201,10 @@ class App:
 # Create and run the application
 if __name__ == "__main__":
     app = App()
-    # try:
-    app.run()
-    # except Exception as e:
-    #     with open("error_log.txt", "a") as f:
-    #         error_str = f"Error: {e}\n{e.args}\n"
-    #         print(error_str)
-    #         f.write(error_str)
+    try:
+        app.run()
+    except Exception as e:
+        with open("error_log.txt", "a") as f:
+            error_str = f"Error: {e}\n{e.args}\n"
+            print(error_str)
+            f.write(error_str)
