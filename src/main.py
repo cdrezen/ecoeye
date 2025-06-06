@@ -1,6 +1,6 @@
 # import user defined parameters
 import config.settings as cfg
-from config.settings import Mode, SaveFilter, ML_Mode
+from config.settings import Mode, ImageType, ML_Mode
 #import libraries
 from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
@@ -14,10 +14,6 @@ from logging.session import Session
 from vision.frame import Frame
 from vision.frame_differencer import FrameDifferencer
 from vision.classifier import Classifier
-
-CAN_SAVE_ANY_IMG = cfg.IMG_SAVE_FILTER and SaveFilter.ANY in cfg.IMG_SAVE_FILTER
-CAN_SAVE_DETECTION_IMG = cfg.IMG_SAVE_FILTER and SaveFilter.DETECTION in cfg.IMG_SAVE_FILTER
-CAN_SAVE_TRIGGER_IMG = cfg.IMG_SAVE_FILTER and SaveFilter.TRIGGER in cfg.IMG_SAVE_FILTER
 
 class App:
     def __init__(self):
@@ -93,12 +89,14 @@ class App:
             frame: Frame object containing the image with the processed blob
             blob: The blob that was processed
         """
-        if (cfg.ML_MODE != ML_Mode.BLOB_CLASS and cfg.BLOBS_EXPORT_METHOD==None):
+        if (cfg.ML_MODE != ML_Mode.BLOB_CLASS 
+            or not Frame.CAN_SAVE_DETECTION_IMG
+            or not self.detectionlog):
             return
 
-        frame_blob = jpeg_frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
+        frame_blob = jpeg_frame.extract_blob_region(blob, cfg.BLOBS_CROP_METHOD)
 
-        if (cfg.BLOBS_EXPORT_METHOD!=None):
+        if (frame_blob.can_save()):
             filename = str(jpeg_frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,frame_blob.roi_rect)));
             frame_blob.save("blobs", filename)
         if (cfg.ML_MODE == ML_Mode.BLOB_CLASS):
@@ -110,11 +108,6 @@ class App:
         Called when the background reference image is reset.
         """
         pass
-
-    def can_save_frame(self):
-        return (CAN_SAVE_ANY_IMG
-        or (CAN_SAVE_TRIGGER_IMG and self.frame_differencer.has_found_blobs)
-        or (CAN_SAVE_DETECTION_IMG and self.classifier.has_detected))
             
     def run(self):
         ### MAIN LOOP ###
@@ -141,7 +134,7 @@ class App:
                 if(cfg.ML_MODE==ML_Mode.FRAME_CLASS or cfg.ML_MODE==ML_Mode.OBJECT_DETECT):
                     detection_confidence = self.classifier.classify(frame.img, cfg.ML_MODE, roi_rect=frame.roi_rect)
 
-                if(self.can_save_frame()):
+                if(frame.can_save()):
                     frame.save("img")
 
             ###

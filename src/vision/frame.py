@@ -5,6 +5,7 @@ import image
 import time
 from util import colors
 import config.settings as cfg
+from vision.image_type import ImageType
 
 class Frame:
     """
@@ -13,6 +14,9 @@ class Frame:
 
     id = 0 # (static) (overflow à 9223372036854775807/(86400*60fps)=1779199852788j)
     BASE_FOLDER = "jpegs"
+    CAN_SAVE_ANY_IMG = cfg.IMG_SAVE_FILTER and ImageType.DEFAULT in cfg.IMG_SAVE_FILTER
+    CAN_SAVE_DETECTION_IMG = cfg.IMG_SAVE_FILTER and ImageType.DETECTION in cfg.IMG_SAVE_FILTER
+    CAN_SAVE_TRIGGER_IMG = cfg.IMG_SAVE_FILTER and ImageType.TRIGGER in cfg.IMG_SAVE_FILTER
     
     # def __init__(self, arg, buffer:bytes|bytearray|memoryview|None=None, copy_to_fb:bool=False):
     #     super().__init__(arg, buffer, copy_to_fb)
@@ -20,7 +24,7 @@ class Frame:
 
     def __init__(self, img: image.Image, capture_time: time.struct_time, 
                  exposure_us: int, gain_db: float, fps: float,
-                 image_type: str = "", roi_rect=None, id=None):
+                 image_type: int = ImageType.DEFAULT, roi_rect=None, id=None):
         """
         Initialize the Frame object with an image and its metadata.
 
@@ -74,6 +78,14 @@ class Frame:
     def get_statistics(self, *args, **kwargs):
         return self.img.get_statistics(*args, **kwargs)
     
+    def can_save(self):
+        """
+        Check if the image can be saved based on the configured filters.
+        """
+        return (Frame.CAN_SAVE_ANY_IMG
+                or (Frame.CAN_SAVE_TRIGGER_IMG and self.image_type == ImageType.TRIGGER)
+                or (Frame.CAN_SAVE_DETECTION_IMG and self.image_type == ImageType.DETECTION))
+    
     @led_green
     def save(self, foldername: str, filename: str = "",):
         if not filename:
@@ -102,7 +114,7 @@ class Frame:
         self.img.draw_rectangle(*blob.rect(), color=rect_color, thickness=thickness)
         return self
     
-    def extract_blob_region(self, blob, shape: BlobExportShape = BlobExportShape.RECTANGLE, img = None):
+    def extract_blob_region(self, blob, shape: int = BlobExportShape.RECTANGLE, img = None):
         """
         Extract the region of interest around a blob
         
@@ -140,6 +152,6 @@ class Frame:
         
         # Extract blob region from the image
         if not img:
-            return Frame(self.img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)
+            return Frame(self.img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, ImageType.DETECTION, blob_rect)
         else:
-            return Frame(img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, self.image_type, blob_rect)
+            return Frame(img.copy(roi=blob_rect), self.capture_time, self.exposure_us, self.gain_db, self.fps, ImageType.DETECTION, blob_rect)

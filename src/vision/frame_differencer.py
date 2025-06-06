@@ -3,6 +3,8 @@ import config.settings as cfg
 from config.settings import ML_Mode
 from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
 from vision.frame import Frame
+from vision.image_type import ImageType
+
 
 class FrameDifferencer:
     """
@@ -180,6 +182,7 @@ class FrameDifferencer:
         blobs = self.find_blobs(diff_frame)
 
         if self.has_found_blobs:
+            jpeg_frame.image_type = ImageType.TRIGGER
             self.listener.on_triggered(jpeg_frame)
 
         if not blobs: return jpeg_frame

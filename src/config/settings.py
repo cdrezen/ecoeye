@@ -1,5 +1,6 @@
 import sensor
 from util.rect import Rect
+from vision.image_type import ImageType
 
 class Mode:
     """
@@ -55,22 +56,13 @@ SENSOR_FRAMESIZE = sensor.WQXGA
 #RGB565 = color
 #GRAYSCALE = black & white)
 SENSOR_PIXFORMAT = sensor.RGB565
-
-class SaveFilter:
-    """
-    "enum" for saving filters.
-    (py enums not inluded in micropython)
-    """
-    ANY:int = 0
-    TRIGGER:int = 1
-    DETECTION:int = 2
     
-#for saving whole images or regions of interest (ROIs). Options:
+# saving filter for images:
 # = None: save no picture
-# any: save all picture
-#trigger: save image-change-triggered pictures
-#detection: save images with model-detected patterns
-IMG_SAVE_FILTER = None if MODE == Mode.LIVE_VIEW else [SaveFilter.TRIGGER, SaveFilter.DETECTION]
+# incl default: save all picture
+# incl trigger: save image-change-triggered pictures
+# incl detection: save images with model-detected patterns
+IMG_SAVE_FILTER = None if MODE == Mode.LIVE_VIEW else [ImageType.TRIGGER, ImageType.DETECTION]
 # _____ windowing mode only parameters _____
 #whether to digitally zoom into image
 USE_SENSOR_WINDOWING = True
@@ -154,12 +146,9 @@ class BlobExportShape:
     RECTANGLE = 0
     SQUARE = 1
 # _____ advanced settings _____
-#wether to export the detected blobs as jpegs (e.g., for gathering training images). options:
 #rectangle: exports bounding rectangle
 #square: exports bounding square with a side length of the longest side of the blob's bounding rectangle
-#None: does not export blobs
-
-BLOBS_EXPORT_METHOD = BlobExportShape.RECTANGLE
+BLOBS_CROP_METHOD = BlobExportShape.RECTANGLE
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
 # How long to wait for auto blending frame in reference image (in milliseconds)
