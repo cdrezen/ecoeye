@@ -26,7 +26,7 @@ illumination.on()
 # illumination.off()
 
 ### test timeutil
-from timeutil import *
+from util.timeutil import *
 
 solartime = Suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
 rtc = Rtc()

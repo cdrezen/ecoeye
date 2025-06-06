@@ -6,7 +6,7 @@ from pyb import Pin, Timer, ExtInt
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, Illumination
 
 import config.settings as cfg
-from timeutil import Suntime
+from util.timeutil import Suntime
 
 # resistors values on voltage divider circuits
 R_1_PMS_LED = 30

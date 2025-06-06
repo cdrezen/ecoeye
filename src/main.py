@@ -9,7 +9,7 @@ import sensor, time, tf, pyb, machine, image
 from ecofunctions import *
 from hardware.power import PowerManagement
 from hardware.led import *
-from timeutil import Suntime, Rtc
+from util.timeutil import Suntime, Rtc
 from logging.session import Session
 from vision.frame import Frame
 from vision.frame_differencer import FrameDifferencer
