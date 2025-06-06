@@ -239,6 +239,7 @@ class Illumination:
         self.brightness = brightness
         self.warmup_ms = warmup_ms
         self.cooldown_ms = cooldown_ms
+        self.start_time_busy_LED_ms = pyb.millis()
         return
 
     def on(self, message=""):
@@ -282,6 +283,13 @@ class Illumination:
         if is_night:
             if self.can_turn_on(is_night):
                 self.on("during nighttime")
-                
         else:
             self.off(message="during daytime")
+
+        #blink LED every period
+        if (pyb.elapsed_millis(self.start_time_busy_LED_ms) > cfg.BUSY_LED_INTERVAL_MS):
+            self.start_time_busy_LED_ms = pyb.millis()
+            print("Blinking LED indicator after",str(cfg.BUSY_LED_INTERVAL_MS/1000),"seconds")
+            LED_BLUE_BLINK(cfg.BUSY_LED_DURATION_MS)
+
+        

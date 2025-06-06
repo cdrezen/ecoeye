@@ -55,7 +55,6 @@ class App:
 
         self.power_mgmt.sleep_if_low_bat(print_status)
 
-        #import mobilenet model and labels
         if(cfg.CLASSIFY_MODE != "none"):
             self.classifier = Classifier(self.session)
 
@@ -69,13 +68,9 @@ class App:
         self.image_width = winrect.w if winrect else sensor.width()
         self.image_height = winrect.h if winrect else sensor.height()
 
-        #start counting time
-        self.start_time_active_LED_ms = pyb.millis()
         self.clock = time.clock()
 
-        #Frame buffer memory management
         if(cfg.FRAME_DIFF_ENABLED):
-            # Initialize the frame differencer
             self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, 
                                                       cfg.SENSOR_PIXFORMAT, self, self.session)
 
@@ -120,16 +115,11 @@ class App:
             self.clock.tick()
             self.is_night = not self.solartime.is_daytime()
 
-            # turn ON illumination LED at night if always ON || turn OFF illumination LED at daytime
+            # turn ON illumination LED at night if always ON || turn OFF illumination LED at daytime, blink busy led every period
             self.illumination.update(self.is_night)
 
+            # handle power mangment, enter deeplseep if needed, lower frame rate using a configured delay
             self.power_mgmt.update()
-
-            #blink LED every period
-            if (pyb.elapsed_millis(self.start_time_active_LED_ms) > cfg.ACTIVE_LED_INTERVAL_MS):
-                self.start_time_active_LED_ms = pyb.millis()
-                print("Blinking LED indicator after",str(cfg.ACTIVE_LED_INTERVAL_MS/1000),"seconds")
-                LED_BLUE_BLINK(cfg.ACTIVE_LED_DURATION_MS)
 
             ### Take and process picture(s) ###
             

@@ -22,10 +22,26 @@ class Mode:
 #2: live capture. Disables frame differencing, classifying, sleeping, bracketing, delay between pictures. Uses auto-exposure.
 MODE = Mode.DEPLOY
 
+### POWER MANAGEMENT ###
 #whether the power management system is used or not
 POWER_MANAGEMENT_ENABLED = False
 #whether the voltage divider circuit is plugged or not
 VOLTAGE_DIV_AVAILABLE = True
+#how often to check the battery
+CHECK_BAT_PERIOD_MS = 10*60*1000 
+#how many voltage readings to average over to obtain the value that will be logged
+VOLTAGE_AVG_SAMPLE_COUNT = 10
+#how much delay between voltage readings (in milliseconds)
+VOLTAGE_READINGS_DELAY_MS = 10
+#minimum voltage for image sensor operation. theoretically, when voltage is below 2.7 V, the image sensor stops working
+VBAT_MINIMUM_VOLT = 0
+#introduce delay between pictures (seconds). Otherwise with a delay of 0, the camera runs at maximum speed
+PICTURE_DELAY_MS = 0 if MODE != Mode.DEPLOY else 0
+#threshold of PICTURE_DELAY_S above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
+USE_DSLEEP_PIC_DELAY = PICTURE_DELAY_MS > 10000
+# how long to stay in deep sleep by default (in milliseconds)
+DEEPSLEEP_DEFAULT_DURATUION_MS = 60000
+
 
 ### IMAGE ###
 #what resolution to use
@@ -39,10 +55,6 @@ SENSOR_FRAMESIZE = sensor.WQXGA
 #RGB565 = color
 #GRAYSCALE = black & white)
 SENSOR_PIXFORMAT = sensor.RGB565
-#introduce delay between pictures (seconds). Otherwise with a delay of 0, the camera runs at maximum speed
-PICTURE_DELAY_MS = 0 if MODE != Mode.DEPLOY else 0
-#threshold of PICTURE_DELAY_S above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
-USE_DSLEEP_PIC_DELAY = PICTURE_DELAY_MS > 10000
 #for saving whole images or regions of interest (ROIs). Options:
 #none: save no picture
 #all: save all pictures (fd_enable must be False)
@@ -140,8 +152,9 @@ class BlobExportShape:
 BLOBS_EXPORT_METHOD = BlobExportShape.RECTANGLE
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 BACKGROUND_BLEND_LEVEL = 128
-
+# How long to wait for auto blending frame in reference image (in milliseconds)
 BLEND_TIMEOUT_MS = 10000
+
 ### NEURAL NETWORKS ###
 #wether to us neural networks to analyse the image. options:
 #image: classify the whole image (i.e. image classification)
@@ -170,21 +183,12 @@ THRESHOLD_IMAGE_SCALE_DEFER = 0.5
 ### INDICATORS ###
 #wether to show the LED signals and image markings. initialising, waking, sleeping, and regular blinking LED signals, as well as warnings are not affected
 INDICATORS_ENABLED = True
-#how often to save status log
-CHECK_BAT_PERIOD_MS = 10*60*1000 
-# ______ advanced settings _____
 #period of blue LED indicating camera is active (in milliseconds, also works when indicators=False)
-ACTIVE_LED_INTERVAL_MS = 60*1000
+BUSY_LED_INTERVAL_MS = 60*1000
 #how long to turn on active LED
-ACTIVE_LED_DURATION_MS = 500
-#how many voltage readings to average over to obtain the value that will be logged
-VOLTAGE_AVG_SAMPLE_COUNT = 10
-#how much delay between voltage readings (in milliseconds)
-VOLTAGE_READINGS_DELAY_MS = 10
-#minimum voltage for image sensor operation. theoretically, when voltage is below 2.7 V, the image sensor stops working
-VBAT_MINIMUM_VOLT = 0
+BUSY_LED_DURATION_MS = 500
 
-### TIME AND POWER ###
+### TIME ###
 #when the camera should work. options:
 #night: during the night (between sunrise and sunset)
 #day: during the day (between sunset and sunrise)

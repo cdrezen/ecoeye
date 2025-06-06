@@ -121,7 +121,7 @@ class PowerManagement:
             if self.session: 
                 self.session.save()
                 self.session.log_status(v, PowerManagement.BATTERY_LOW_STR)
-            indicator_dsleep(self.suntime.time_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY, cfg.ACTIVE_LED_INTERVAL_MS)
+            indicator_dsleep(self.suntime.time_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY)
         else:
             print("Battery voltage is sufficient.")
 
@@ -143,7 +143,7 @@ class PowerManagement:
                 sleep_time = self.suntime.time_until_sunset()
             self.session.save()
             self.session.log_status(self.get_battery_voltage(), "Outside operation time - Sleeping")
-            indicator_dsleep(sleep_time, cfg.ACTIVE_LED_INTERVAL_MS)
+            indicator_dsleep(sleep_time)
         
     def update(self):
         """
@@ -168,6 +168,6 @@ class PowerManagement:
                 self.session.save()
                 self.session.log_status(self.get_battery_voltage(), "Delay loop - Sleeping")
                 # go to sleep until next picture with blinking indicator
-                indicator_dsleep(cfg.PICTURE_DELAY_MS, cfg.ACTIVE_LED_INTERVAL_MS)
+                indicator_dsleep(cfg.PICTURE_DELAY_MS)
                 self.sleep_if_low_bat("Delay loop - Waking")
 

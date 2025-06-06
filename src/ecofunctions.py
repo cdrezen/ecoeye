@@ -237,7 +237,7 @@ def deep_sleep(sleep_time):
 # active_LED_interval_ms - time between indicator signal in ms
 # --- Output variables ---
 # none
-def indicator_dsleep(sleep_time,active_LED_interval_ms):
+def indicator_dsleep(sleep_time):
     # create deep sleep end time file on the initial sleep time call of tthis function
     if(sleep_time > 0):
         # print and blink deep sleep time
@@ -254,13 +254,13 @@ def indicator_dsleep(sleep_time,active_LED_interval_ms):
             dsleep_end_epoch = eval(timefetch.read())
 
     # compute deep sleep interval wakeup time in epoch seconds
-    dsleep_wakeup_epoch = time.mktime(time.localtime()) + math.floor(active_LED_interval_ms/1000)
+    dsleep_wakeup_epoch = time.mktime(time.localtime()) + math.floor(cfg.DEEPSLEEP_DEFAULT_DURATUION_MS/1000)
     # make sure sleep doesnt surpass the sleep end time
     if(dsleep_wakeup_epoch > dsleep_end_epoch):
         nap_time = (dsleep_end_epoch - time.mktime(time.localtime()))*1000
         dsleep_wakeup_epoch = dsleep_end_epoch
     else:
-        nap_time = active_LED_interval_ms
+        nap_time = cfg.DEEPSLEEP_DEFAULT_DURATUION_MS
 
     # create deep sleep wakeup file and write deep sleep wakeup epoch
     with open('/sdcard/VAR/dsleepwakeup.txt', 'w') as timelog:
@@ -303,7 +303,7 @@ def start_check():
             # indicator LED : the white firmware is used as the indicator now
             #LED_BLUE_BLINK(500,1)
             # sleep time is zero for interval sleep, indicator is 60s hardcoded
-            indicator_dsleep(0,60000)
+            indicator_dsleep(0)
     else:
         print("Starting script from POWER ON")
     return
