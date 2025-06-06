@@ -56,7 +56,7 @@ if cfg.VOLTAGE_DIV_AVAILABLE == False:
 else:
    assert pw.get_battery_voltage() > 0
 
-pw.update(solartime, "test")
+pw.sleep_if_low_bat(solartime, "test")
 ###`
 
 ### test file

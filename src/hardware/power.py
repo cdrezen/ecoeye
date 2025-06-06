@@ -1,12 +1,12 @@
 ### VOLTAGE DIVIDER ###
 from ecofunctions import indicator_dsleep
 from logging.session import Session
-import pyb
+import pyb, time
 from pyb import Pin, Timer, ExtInt
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, Illumination
 
 import config.settings as cfg
-from util.timeutil import Suntime
+from util.timeutil import Rtc, Suntime
 
 # resistors values on voltage divider circuits
 R_1_PMS_LED = 30
@@ -87,10 +87,12 @@ class PowerManagement:
     BATTERY_LOW_STR = "Battery low - Sleeping"
     AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
 
-    def __init__(self, illumination: Illumination, session: Session|None = None, enabled=cfg.POWER_MANAGEMENT_ENABLED):
+    def __init__(self, illumination: Illumination, suntime: Suntime, rtc: Rtc, session: Session|None = None, enabled=cfg.POWER_MANAGEMENT_ENABLED):
         
         self.enabled = enabled
         self.illumination = illumination
+        self.suntime = suntime
+        self.rtc = rtc
         self.session = session
         if self.enabled:
             r1 = R_1_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_PMS_noLED
@@ -99,12 +101,12 @@ class PowerManagement:
             r1 = R_1_noPMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_noPMS_noLED
             r2 = R_2_noPMS_LED if cfg.LED_MODULE_AVAILABLE else R_2_noPMS_noLED
         self.battery = Battery(r1, r2)
+        self.start_time_check_battery = pyb.millis()
 
     def get_battery_voltage(self):
        return self.battery.read_voltage()
 
-
-    def update(self, suntime: Suntime, print_status=""):
+    def sleep_if_low_bat(self, print_status=""):
         """
         Put the system to sleep if the battery voltage is below the minimum threshold.
         """
@@ -119,11 +121,53 @@ class PowerManagement:
             if self.session: 
                 self.session.save()
                 self.session.log_status(v, PowerManagement.BATTERY_LOW_STR)
-            indicator_dsleep(suntime.time_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY, cfg.ACTIVE_LED_INTERVAL_MS)
+            indicator_dsleep(self.suntime.time_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY, cfg.ACTIVE_LED_INTERVAL_MS)
         else:
             print("Battery voltage is sufficient.")
 
-        is_night = not suntime.is_daytime()
+        is_night = not self.suntime.is_daytime()
         if(self.illumination.can_turn_on(is_night)):
             self.illumination.on(message="after voltage reading")
+
+    def sleep_if_not_operation_time(self):
+        """
+        Put the system to sleep if it is not within the operation time.
+        """
+        if(not self.suntime.is_operation_time()):
+            print("Outside operation time - current time:",time.localtime()[0:6])
+            self.illumination.off(message="before deep sleep")     
+            #compute time until wake-up
+            if (cfg.TIME_COVERAGE == "day"):
+                sleep_time = self.suntime.time_until_sunrise()
+            elif (cfg.TIME_COVERAGE == "night"):
+                sleep_time = self.suntime.time_until_sunset()
+            self.session.save()
+            self.session.log_status(self.get_battery_voltage(), "Outside operation time - Sleeping")
+            indicator_dsleep(sleep_time, cfg.ACTIVE_LED_INTERVAL_MS)
         
+    def update(self):
+        """
+        Update the power management state.
+        """
+
+        self.sleep_if_not_operation_time()
+
+        #check battery voltage (if possible) and log status every period
+        if (pyb.elapsed_millis(self.start_time_check_battery) > cfg.CHECK_BAT_PERIOD_MS):
+            self.start_time_check_battery = pyb.millis()
+            print_status=f"Script running - timed check (Y,M,D) {self.rtc.datetime()[0:3]} - (H,M,S) {self.rtc.datetime()[4:7]}"
+            self.sleep_if_low_bat(print_status)
+
+         ### delay to decrease frame rate: ###
+        if (cfg.PICTURE_DELAY_MS):
+            if (not cfg.USE_DSLEEP_PIC_DELAY):
+                print("Delaying frame capture for", cfg.PICTURE_DELAY_MS, "seconds...")
+                pyb.delay(cfg.PICTURE_DELAY_MS)   
+            else:
+                self.illumination.off(no_cooldown=True, message="before deep sleep")
+                self.session.save()
+                self.session.log_status(self.get_battery_voltage(), "Delay loop - Sleeping")
+                # go to sleep until next picture with blinking indicator
+                indicator_dsleep(cfg.PICTURE_DELAY_MS, cfg.ACTIVE_LED_INTERVAL_MS)
+                self.sleep_if_low_bat("Delay loop - Waking")
+

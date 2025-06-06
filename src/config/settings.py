@@ -40,9 +40,9 @@ SENSOR_FRAMESIZE = sensor.WQXGA
 #GRAYSCALE = black & white)
 SENSOR_PIXFORMAT = sensor.RGB565
 #introduce delay between pictures (seconds). Otherwise with a delay of 0, the camera runs at maximum speed
-PICTURE_DELAY_S = 0 if MODE != Mode.DEPLOY else 0
+PICTURE_DELAY_MS = 0 if MODE != Mode.DEPLOY else 0
 #threshold of PICTURE_DELAY_S above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
-SLEEP_THRESHOLD_S = 10
+USE_DSLEEP_PIC_DELAY = PICTURE_DELAY_MS > 10000
 #for saving whole images or regions of interest (ROIs). Options:
 #none: save no picture
 #all: save all pictures (fd_enable must be False)
@@ -171,7 +171,7 @@ THRESHOLD_IMAGE_SCALE_DEFER = 0.5
 #wether to show the LED signals and image markings. initialising, waking, sleeping, and regular blinking LED signals, as well as warnings are not affected
 INDICATORS_ENABLED = True
 #how often to save status log
-LOG_STATUS_PERIOD_MS = 10*60*1000 
+CHECK_BAT_PERIOD_MS = 10*60*1000 
 # ______ advanced settings _____
 #period of blue LED indicating camera is active (in milliseconds, also works when indicators=False)
 ACTIVE_LED_INTERVAL_MS = 60*1000

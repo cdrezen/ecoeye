@@ -48,12 +48,12 @@ class App:
         else:
             print_status="Script start - Live view"
 
-        self.power_mgmt = PowerManagement(self.illumination, self.session)
+        self.power_mgmt = PowerManagement(self.illumination, self.solartime, self.rtc, self.session)
         
         if self.session:
             self.detectionlog=self.session.detectionlog
 
-        self.power_mgmt.update(self.solartime, print_status)
+        self.power_mgmt.sleep_if_low_bat(print_status)
 
         #import mobilenet model and labels
         if(cfg.CLASSIFY_MODE != "none"):
@@ -70,7 +70,6 @@ class App:
         self.image_height = winrect.h if winrect else sensor.height()
 
         #start counting time
-        self.start_time_status_ms = pyb.millis()
         self.start_time_active_LED_ms = pyb.millis()
         self.clock = time.clock()
 
@@ -121,40 +120,16 @@ class App:
             self.clock.tick()
             self.is_night = not self.solartime.is_daytime()
 
-            # go to deep sleep when not operation time
-            if(not self.solartime.is_operation_time()):
-                print("Outside operation time - current time:",time.localtime()[0:6])
-                self.illumination.off(message="before deep sleep")
-                
-                if(cfg.MIN_IMAGE_SCALE < cfg.THRESHOLD_IMAGE_SCALE_DEFER):
-                    #deferred analysis of images when scale is too small (not working yet)
-                    print("Starting deferred analysis of images before sleeping...")
-                    # deferred_analysis(cfg.NET_PATH, cfg.MIN_IMAGE_SCALE, predictions_list)
-                
-                #compute time until wake-up
-                if (cfg.TIME_COVERAGE == "day"):
-                    sleep_time = self.solartime.time_until_sunrise()
-                elif (cfg.TIME_COVERAGE == "night"):
-                    sleep_time = self.solartime.time_until_sunset()
-                self.session.save()
-                self.session.log_status(self.power_mgmt.get_battery_voltage(), "Outside operation time - Sleeping")
-                indicator_dsleep(sleep_time, cfg.ACTIVE_LED_INTERVAL_MS)
-
             # turn ON illumination LED at night if always ON || turn OFF illumination LED at daytime
             self.illumination.update(self.is_night)
 
-            #log status and battery voltage (if possible) every period
-            if (pyb.elapsed_millis(self.start_time_status_ms) > cfg.LOG_STATUS_PERIOD_MS):
-                self.start_time_status_ms = pyb.millis()
-                print_status=f"Script running - timed check (Y,M,D) {self.rtc.datetime()[0:3]} - (H,M,S) {self.rtc.datetime()[4:7]}"
-                self.power_mgmt.update(self.solartime, print_status)
+            self.power_mgmt.update()
 
             #blink LED every period
             if (pyb.elapsed_millis(self.start_time_active_LED_ms) > cfg.ACTIVE_LED_INTERVAL_MS):
                 self.start_time_active_LED_ms = pyb.millis()
                 print("Blinking LED indicator after",str(cfg.ACTIVE_LED_INTERVAL_MS/1000),"seconds")
                 LED_BLUE_BLINK(cfg.ACTIVE_LED_DURATION_MS)
-
 
             ### Take and process picture(s) ###
             
@@ -175,27 +150,6 @@ class App:
                     frame.save("img")
 
             print("Frames per second: %s" % str(round(self.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
-
-            ### delay loop execution to control frame rate: ###
-
-            pic_delay = cfg.PICTURE_DELAY_S
-            # settings indicate regular sleeping for pic_delay seconds
-            if (pic_delay > 0 and pic_delay < cfg.SLEEP_THRESHOLD_S):
-                print("Delaying frame capture for",pic_delay,"seconds...")
-                pyb.delay(pic_delay*1000)
-            
-            # settings indicate DEEP sleeping for pic_delay seconds to save power
-            elif (pic_delay > cfg.SLEEP_THRESHOLD_S):
-                # before deep sleep, turn off illumination LEDs if on
-                self.illumination.off(no_cooldown=True, message="before deep sleep")
-                # save variables and log status before going ot sleep
-                self.session.save()
-                self.session.log_status(self.power_mgmt.get_battery_voltage(), "Delay loop - Sleeping")
-                # go to sleep until next picture with blinking indicator
-                indicator_dsleep(pic_delay*1000,cfg.ACTIVE_LED_INTERVAL_MS)
-
-                # (when light sleep is used) check voltage and save status, if battery too low -> sleep until sunrise
-                self.power_mgmt.update(self.solartime, "Delay loop - Waking")
 
 
 # Create and run the application
