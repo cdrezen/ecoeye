@@ -55,12 +55,22 @@ SENSOR_FRAMESIZE = sensor.WQXGA
 #RGB565 = color
 #GRAYSCALE = black & white)
 SENSOR_PIXFORMAT = sensor.RGB565
+
+class SaveFilter:
+    """
+    "enum" for saving filters.
+    (py enums not inluded in micropython)
+    """
+    ANY:int = 0
+    TRIGGER:int = 1
+    DETECTION:int = 2
+    
 #for saving whole images or regions of interest (ROIs). Options:
-#none: save no picture
-#all: save all pictures (fd_enable must be False)
+# = None: save no picture
+# any: save all picture
 #trigger: save image-change-triggered pictures
-#detect: save images with model-detected patterns
-SAVE_ROI_MODE = "none" if MODE == Mode.LIVE_VIEW else "trigger"
+#detection: save images with model-detected patterns
+IMG_SAVE_FILTER = None if MODE == Mode.LIVE_VIEW else [SaveFilter.TRIGGER, SaveFilter.DETECTION]
 # _____ windowing mode only parameters _____
 #whether to digitally zoom into image
 USE_SENSOR_WINDOWING = True
@@ -161,7 +171,16 @@ BLEND_TIMEOUT_MS = 10000
 #objects: detect (multiple) targets within image (i.e. object detection)
 #blobs: classify the blobs (extracted from their bounding rectangles)
 #none: do not use neural networks
-CLASSIFY_MODE = "none" if MODE != Mode.DEPLOY else "none"
+class ML_Mode:
+    """
+    "enum" for classify modes.
+    (py enums not inluded in micropython)
+    """
+    FRAME_CLASS:int = 0
+    OBJECT_DETECT:int = 1
+    BLOB_CLASS:int = 2
+
+ML_MODE = None if MODE != Mode.DEPLOY else None
 # _____ classify enabled only parameters _____
 #absolute file paths to model and labels files stored on SD card. needs to start with backslash if file is in root
 NET_PATH = "/trained.tflite"

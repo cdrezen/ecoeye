@@ -1,10 +1,10 @@
 # import user defined parameters
 import config.settings as cfg
-from config.settings import Mode
+from config.settings import Mode, SaveFilter, ML_Mode
 #import libraries
 from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
-import sensor, time, tf, pyb, machine, image
+import sensor, time, machine, image
 # import external functions
 from ecofunctions import *
 from hardware.power import PowerManagement
@@ -15,6 +15,9 @@ from vision.frame import Frame
 from vision.frame_differencer import FrameDifferencer
 from vision.classifier import Classifier
 
+CAN_SAVE_ANY_IMG = cfg.IMG_SAVE_FILTER and SaveFilter.ANY in cfg.IMG_SAVE_FILTER
+CAN_SAVE_DETECTION_IMG = cfg.IMG_SAVE_FILTER and SaveFilter.DETECTION in cfg.IMG_SAVE_FILTER
+CAN_SAVE_TRIGGER_IMG = cfg.IMG_SAVE_FILTER and SaveFilter.TRIGGER in cfg.IMG_SAVE_FILTER
 
 class App:
     def __init__(self):
@@ -24,10 +27,9 @@ class App:
         self.camera = Camera()
         self.session: Session | None = None
         self.power_mgmt: PowerManagement
-        self.is_night = not self.solartime.is_daytime()
+        self.is_night: bool
         self.frame_differencer: FrameDifferencer
         self.classifier: Classifier
-        self.wifi_enabled= cfg.WIFI_ENABLED and wifishield_isconnnected()
         self.detectionlog: DetectionLogger | None = None
         
         # perform quick start from sleep check
@@ -55,7 +57,7 @@ class App:
 
         self.power_mgmt.sleep_if_low_bat(print_status)
 
-        if(cfg.CLASSIFY_MODE != "none"):
+        if(cfg.ML_MODE):
             self.classifier = Classifier(self.session)
 
         winrect = cfg.WIN_RECT if cfg.USE_SENSOR_WINDOWING else None
@@ -91,7 +93,7 @@ class App:
             frame: Frame object containing the image with the processed blob
             blob: The blob that was processed
         """
-        if (cfg.CLASSIFY_MODE != "blobs" and cfg.BLOBS_EXPORT_METHOD==None):
+        if (cfg.ML_MODE != ML_Mode.BLOB_CLASS and cfg.BLOBS_EXPORT_METHOD==None):
             return
 
         frame_blob = jpeg_frame.extract_blob_region(blob, cfg.BLOBS_EXPORT_METHOD)
@@ -99,8 +101,8 @@ class App:
         if (cfg.BLOBS_EXPORT_METHOD!=None):
             filename = str(jpeg_frame.id) + "_d" + str(self.detectionlog.detection_count) + "_xywh" + str("_".join(map(str,frame_blob.roi_rect)));
             frame_blob.save("blobs", filename)
-        if (cfg.CLASSIFY_MODE == "blobs"):
-            detected, output = self.classifier.classify(frame_blob.img, cfg.CLASSIFY_MODE)
+        if (cfg.ML_MODE == ML_Mode.BLOB_CLASS):
+            output = self.classifier.classify(frame_blob.img, cfg.ML_MODE)
             self.detectionlog.append(jpeg_frame.id, labels=self.classifier.labels, confidences=output, rect=blob.rect(), prepend_comma=True)
 
     def on_background_reset(self):
@@ -108,7 +110,12 @@ class App:
         Called when the background reference image is reset.
         """
         pass
-        
+
+    def can_save_frame(self):
+        return (CAN_SAVE_ANY_IMG
+        or (CAN_SAVE_TRIGGER_IMG and self.frame_differencer.has_found_blobs)
+        or (CAN_SAVE_DETECTION_IMG and self.classifier.has_detected))
+            
     def run(self):
         ### MAIN LOOP ###
         while(True):
@@ -131,13 +138,13 @@ class App:
             if(self.session):
                 frame.log(self.session.imagelog) ### keep in main
 
-                if(cfg.CLASSIFY_MODE=="image" or cfg.CLASSIFY_MODE=="objects"):
-                    detected, detection_confidence = self.classifier.classify(frame.img, cfg.CLASSIFY_MODE, roi_rect=frame.roi_rect)
+                if(cfg.ML_MODE==ML_Mode.FRAME_CLASS or cfg.ML_MODE==ML_Mode.OBJECT_DETECT):
+                    detection_confidence = self.classifier.classify(frame.img, cfg.ML_MODE, roi_rect=frame.roi_rect)
 
-                if(cfg.SAVE_ROI_MODE == "all" 
-                or (cfg.SAVE_ROI_MODE  == "trigger" and self.frame_differencer.has_found_blobs)
-                or (cfg.SAVE_ROI_MODE == "detect" and detected)):
+                if(self.can_save_frame()):
                     frame.save("img")
+
+            ###
 
             print("Frames per second: %s" % str(round(self.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
 

@@ -1,5 +1,6 @@
 import sensor, image, pyb
 import config.settings as cfg
+from config.settings import ML_Mode
 from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
 from vision.frame import Frame
 
@@ -143,7 +144,7 @@ class FrameDifferencer:
                 # log each detected blob, we finish the CSV line here if not classifying
                 # stats not supported on compressed images...
                 color_statistics = diff_frame.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
-                self.detectionlog.append(diff_frame.id, blob, color_statistics, end_line=(cfg.CLASSIFY_MODE != "blobs"))
+                self.detectionlog.append(diff_frame.id, blob, color_statistics, end_line=(cfg.ML_MODE != ML_Mode.BLOB_CLASS))
             
             self.listener.on_blob_found(jpeg_frame, blob)
 

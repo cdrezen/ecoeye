@@ -1,6 +1,7 @@
 from hardware.led import LED_YELLOW_OFF, LED_YELLOW_ON
 import math, tf, image
 import config.settings as cfg
+from config.settings import ML_Mode
 
 ### TODO: use design pattern
 class Classifier:
@@ -14,6 +15,7 @@ class Classifier:
         self.scale_mul = 0.5  # From original code's hardcoded values
         self.x_overlap = 0.5
         self.y_overlap = 0.5
+        self.has_detected = False
         self._load_model()
 
     def _load_model(self):
@@ -32,13 +34,16 @@ class Classifier:
         """
         Classify an image using the specified mode.
         """
+
+        self.has_detected = False
+
         if use_indicators: LED_YELLOW_ON()
 
-        if mode == 'blobs':
+        if mode == ML_Mode.BLOB_CLASS:
             res = self.classify_blob(img)
-        elif mode == 'image':
+        elif mode == ML_Mode.FRAME_CLASS:
             res = self.classify_image(img, roi_rect)
-        elif mode == 'objects':
+        elif mode == ML_Mode.OBJECT_DETECT:
             res = self.detect_objects(img)
 
         if use_indicators: LED_YELLOW_OFF()
@@ -59,8 +64,8 @@ class Classifier:
         img_resized = self._rescale_image(img)
         obj = tf.classify(self.net_path, img_resized)[0]
         output = obj.output()
-        detected = len(output) > 0
-        return detected, obj.output()
+        self.has_detected = len(output) > 0
+        return obj.output()
 
     def classify_image(self, img, roi_rect=None):
         """Classify using sliding window approach"""
@@ -71,7 +76,6 @@ class Classifier:
             return
             
         img = self._rescale_image(img)
-        detected = False
         confidence = 0
 
         for obj in tf.classify(
@@ -84,7 +88,7 @@ class Classifier:
         ):
             output = obj.output()
             if self._check_threshold(output):
-                detected = True
+                self.has_detected = True
                 print("Detected target! Logging detection...")
 
                 self.detectionlog.append(
@@ -93,7 +97,7 @@ class Classifier:
                     confidences=output,
                     rect=roi_rect
                 )
-        return detected, confidence
+        return confidence
     
     def _check_threshold(self, output):
         """Check if any non-target class exceeds confidence threshold"""
@@ -109,7 +113,6 @@ class Classifier:
 
         threshold_value = math.ceil(self.threshold_confidence * 255)
         confidence = 0
-        detected = False
 
         for class_id, detection_list in enumerate(tf.detect(
             self.net_path,
@@ -121,7 +124,7 @@ class Classifier:
             or (len(detection_list) == 0)): # no detections for this class?
                 continue 
 
-            detected = True
+            self.has_detected = True
             print("Detected %s! Logging detection..." % self.labels[class_id])
             
             for detection in detection_list:
@@ -137,4 +140,4 @@ class Classifier:
                     rect=detection.rect()
                 )
                 
-        return detected, confidence
+        return confidence
