@@ -30,7 +30,7 @@ class FrameDifferencer:
             self.imagelog = session.imagelog
         self.img_ref_fb: image.Image
         self.started = False
-        self.has_found_blobs = False
+        self.was_triggered = False
         self.initialize_framebuffers()
         if (cfg.EXPOSURE_MODE=="auto"): 
             print("ATTENTION: using automatic exposure with frame differencing can result in spurious triggers!")
@@ -113,13 +113,13 @@ class FrameDifferencer:
         """
 
         blobs: list[image.blob]
-        self.has_found_blobs = False
+        self.was_triggered = False
 
         try:
             # Find blobs in the difference image
             blobs = diff_frame.img.find_blobs(cfg.BLOB_COLOR_THRESHOLDS, invert=True, merge=False, pixels_threshold=cfg.MIN_BLOB_PIXELS)
         except MemoryError:
-            self.has_found_blobs = True
+            self.was_triggered = True
             print("Memory error in blob detection - assuming triggered")
         
         # filter blobs with maximum pixels condition
@@ -127,7 +127,7 @@ class FrameDifferencer:
 
         if len(blobs) > 0:
             print(f"{len(blobs)} blob(s) within range!")
-            self.has_found_blobs = True
+            self.was_triggered = True
 
         return blobs
     
@@ -162,15 +162,15 @@ class FrameDifferencer:
         # If no reference image is set or there was any change precedently, set the current image as reference
         if (not self.started):
             self.set_reference_image(frame)
-            self.has_found_blobs = False
+            self.was_triggered = False
             self.started = True
             self.listener.on_background_reset()
             return frame
         # If the reference image is set, check if we need to blend the background
         # TODO: track detections rects and blend on no movement, multi blobs: mask?
-        elif (self.has_found_blobs or pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS):
+        elif (self.was_triggered or pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS):
             self.blend_background(frame)
-            self.has_found_blobs = False
+            self.was_triggered = False
             return frame
 
         # copy at save-quality before differencing it (image.difference() overwrites)
@@ -181,7 +181,7 @@ class FrameDifferencer:
         diff_frame.save("diff")
         blobs = self.find_blobs(diff_frame)
 
-        if self.has_found_blobs:
+        if self.was_triggered:
             jpeg_frame.image_type = ImageType.TRIGGER
             self.listener.on_triggered(jpeg_frame)
 

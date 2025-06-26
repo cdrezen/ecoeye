@@ -121,7 +121,7 @@ class App:
             # handle power mangment, enter deeplseep if needed, lower frame rate using a configured delay
             self.power_mgmt.update()
 
-            ### Take and process picture(s) ###
+            ### Take and process picture ###
             
             frame = self.camera.take_picture(self.is_night, self.clock)
             
@@ -129,7 +129,7 @@ class App:
                 frame = self.frame_differencer.update(frame)
 
             if(self.session):
-                frame.log(self.session.imagelog) ### keep in main
+                frame.log(self.session.imagelog)
 
                 if(cfg.ML_MODE==ML_Mode.FRAME_CLASS or cfg.ML_MODE==ML_Mode.OBJECT_DETECT):
                     detection_confidence = self.classifier.classify(frame.img, cfg.ML_MODE, roi_rect=frame.roi_rect)
@@ -145,10 +145,4 @@ class App:
 # Create and run the application
 if __name__ == "__main__":
     app = App()
-    try:
-        app.run()
-    except Exception as e:
-        with open("error_log.txt", "a") as f:
-            error_str = f"Error: {e}\n{e.args}\n"
-            print(error_str)
-            f.write(error_str)
+    app.run()
