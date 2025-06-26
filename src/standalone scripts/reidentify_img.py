@@ -7,7 +7,7 @@ import re
 
 CSV_FILE = '../images.csv'
 ID_HEADER = 'picture_id'
-DATE_HEADER = 'date_time'
+DATE_HEADER = 'date'
 SINGLE_ID_FOLDERS = ['img', 'reference', 'diff']
 BLOBS_FOLDER = 'blobs'
 
@@ -70,6 +70,8 @@ def find_existing_single_id_folders():
     for name in os.listdir('.'):
         if os.path.isdir(name) and name[0].isdigit():
             single_id_folders.append(name)
+
+    print(f"Found folders: {single_id_folders}")
     
     return single_id_folders
 
@@ -93,10 +95,10 @@ def rename_single_id_file(id, date_str, folder):
 def rename_blob_file(filename, img_id_str, date_str):
     suffix = filename[len(img_id_str):]
     new_name = f"{date_str}_{img_id_str}{suffix}"
-    old_path = os.path.join(BLOBS_FOLDER, fname)
+    old_path = os.path.join(BLOBS_FOLDER, filename)
     new_path = os.path.join(BLOBS_FOLDER, new_name)
     os.rename(old_path, new_path)
-    print(f"{BLOBS_FOLDER}: {fname} -> {new_name}")
+    print(f"{BLOBS_FOLDER}: {filename} -> {new_name}")
 
 date_finder = DateFinder(CSV_FILE)
 single_id_folders = find_existing_single_id_folders()
@@ -131,7 +133,7 @@ for fname in os.listdir(BLOBS_FOLDER):
     date_str = date_finder.get_date_from_id_str(img_id_str)
 
     if date_str is None:
-        print(f"Skipping file with non-numeric ID: {filename}")
+        print(f"Skipping file with non-numeric ID: {fname}")
         continue
 
     rename_blob_file(fname, img_id_str, date_str)
