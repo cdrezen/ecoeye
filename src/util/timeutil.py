@@ -17,7 +17,7 @@ SECONDS_IDX = 5
 SUNRISE_MS = cfg.SUNRISE_HOUR * MS_PER_HOUR + cfg.SUNRISE_MINUTE * MS_PER_MIN
 SUNSET_MS = cfg.SUNSET_HOUR * MS_PER_HOUR + cfg.SUNSET_MINUTE * MS_PER_MIN
 
-### Sunrise and sunset class ###
+### deprecated ###
 class Suntime:
 
     def __init__(self, op_t, sr_h, sr_m, ss_h, ss_m):
@@ -98,20 +98,23 @@ class Suntime:
         if(self.op_t=="24h"):
             operation_time_check = True
         return operation_time_check
-
+###
 
 class Rtc:
     def __init__(self):
         # initialise RTC object
         self.rtc = pyb.RTC()
-        # set rtc from user definedc date and time only on power on
+        # set rtc from user defined date and time only on power on
         if (machine.reset_cause() != machine.DEEPSLEEP_RESET):
             self.rtc.datetime(cfg.START_DATETIME)
         
     def datetime(self):
         return self.rtc.datetime() # returns a tuple (year, month, day, weekday, hours, minutes, seconds, subseconds)
+
     
 rtc = Rtc()
+
+clock = time.clock()
 
 def datetime():
     return rtc.datetime()

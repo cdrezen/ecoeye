@@ -1,11 +1,9 @@
 from hardware.led import LED_WHITE_BLINK, Illumination
 import sensor
-import pyb
-import time
-from config.settings import Mode
 import config.settings as cfg
 import sys
 from util.rect import Rect
+from util import timeutil
 import vision.frame
 
 class Camera:
@@ -82,26 +80,20 @@ class Camera:
         else:
             return sensor.width(), sensor.height()
         
-    def take_picture(self, is_night: bool, clock: time.clock, exposure_mult=None, image_type=""):
+    def take_picture(self, exposure_mult=None):
         """
         Take a picture with the current or modified camera settings.
         
         Args:
-            do_expose: Whether to adjust exposure before taking the picture
-            exposure_mode: Exposure self.exposure_mode if adjusting exposure
-            exposure_bias_day: Exposure bias for daytime if adjusting exposure
-            exposure_bias_night: Exposure bias for nighttime if adjusting exposure
-            gain_bias: Gain bias if adjusting exposure
-            exposure_ms: Explicit exposure time if adjusting exposure
-            gain_db: Explicit gain if adjusting exposure
-            is_night: Boolean indicating if it's night time
             exposure_mult: Multiplier for exposure bracketing
-            illumination: Illumination controller object
+            image_type: type of image being captured
             
         Returns:
-            Tuple of (image, timestamp_string)
+            vision.frame.Frame: The captured image wrapped in a Frame object.
         """
         
+        is_night = not timeutil.is_daytime()
+
         if exposure_mult is not None:
             # Fix the gain so image is stable
             sensor.set_auto_gain(False)
@@ -125,7 +117,7 @@ class Camera:
         self.last_gain_db = int(sensor.get_gain_db())
         self.last_exposure = sensor.get_exposure_us()
         
-        return vision.frame.Frame(img, time.localtime(), self.last_exposure, self.last_gain_db, clock.fps(), image_type)
+        return vision.frame.Frame(img, timeutil.datetime(), self.last_exposure, self.last_gain_db, timeutil.clock.fps())
     
     def update_exposure_bias(self, is_night: bool, gain_bias=cfg.GAIN_BIAS, exposure_bias=None):
         """

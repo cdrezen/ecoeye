@@ -7,8 +7,7 @@ from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, Illumination
 
 import config.settings as cfg
 from config.settings import TimeCoverage
-from util.timeutil import Rtc, Suntime
-
+from util import timeutil
 # resistors values on voltage divider circuits
 R_1_PMS_LED = 30
 R_2_PMS_LED = 8.82352941176
@@ -88,12 +87,10 @@ class PowerManagement:
     BATTERY_LOW_STR = "Battery low - Sleeping"
     AFTER_SUNRISE_DELAY = 30*60*1000 # 30 minutes
 
-    def __init__(self, illumination: Illumination, suntime: Suntime, rtc: Rtc, session: Session|None = None, enabled=cfg.POWER_MANAGEMENT_ENABLED):
+    def __init__(self, illumination: Illumination, session: Session|None = None, enabled=cfg.POWER_MANAGEMENT_ENABLED):
         
         self.enabled = enabled
         self.illumination = illumination
-        self.suntime = suntime
-        self.rtc = rtc
         self.session = session
         if self.enabled:
             r1 = R_1_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_PMS_noLED
@@ -122,11 +119,11 @@ class PowerManagement:
             if self.session: 
                 self.session.save()
                 self.session.log_status(v, PowerManagement.BATTERY_LOW_STR)
-            indicator_dsleep(self.suntime.time_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY)
+            indicator_dsleep(timeutil.ms_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY)
         else:
             print("Battery voltage is sufficient.")
 
-        is_night = not self.suntime.is_daytime()
+        is_night = not timeutil.is_daytime()
         if(self.illumination.can_turn_on(is_night)):
             self.illumination.on(message="after voltage reading")
 
@@ -134,14 +131,14 @@ class PowerManagement:
         """
         Put the system to sleep if it is not within the operation time.
         """
-        if(not self.suntime.is_operation_time()):
-            print("Outside operation time - current time:",time.localtime()[0:6])
+        if(not timeutil.is_operation_time()):
+            print("Outside operation time - current time:",timeutil.datetime()[0:6])
             self.illumination.off(message="before deep sleep")     
             #compute time until wake-up
             if (cfg.TIME_COVERAGE == TimeCoverage.DAY):
-                sleep_time = self.suntime.time_until_sunrise()
+                sleep_time = timeutil.ms_until_sunrise()
             elif (cfg.TIME_COVERAGE == TimeCoverage.NIGHT):
-                sleep_time = self.suntime.time_until_sunset()
+                sleep_time = timeutil.ms_until_sunset()
             self.session.save()
             self.session.log_status(self.get_battery_voltage(), "Outside operation time - Sleeping")
             indicator_dsleep(sleep_time)
@@ -156,7 +153,8 @@ class PowerManagement:
         #check battery voltage (if possible) and log status every period
         if (pyb.elapsed_millis(self.start_time_check_battery) > cfg.CHECK_BAT_PERIOD_MS):
             self.start_time_check_battery = pyb.millis()
-            print_status=f"Script running - timed check (Y,M,D) {self.rtc.datetime()[0:3]} - (H,M,S) {self.rtc.datetime()[4:7]}"
+            datetime = timeutil.datetime()
+            print_status=f"Script running - timed check (Y,M,D) {datetime[0:3]} - (H,M,S) {datetime[4:7]}"
             self.sleep_if_low_bat(print_status)
 
          ### delay to decrease frame rate: ###
