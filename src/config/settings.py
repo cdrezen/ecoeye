@@ -199,7 +199,16 @@ BUSY_LED_DURATION_MS = 500
 #night: during the night (between sunrise and sunset)
 #day: during the day (between sunset and sunrise)
 #24h: all the time
-TIME_COVERAGE = "24h" if MODE != Mode.DEPLOY else "24h"
+class TimeCoverage:
+    """
+    "enum" for classify modes.
+    (py enums not inluded in micropython)
+    """
+    ALL:int = 0
+    DAY:int = 1
+    NIGHT:int = 2
+
+TIME_COVERAGE = TimeCoverage.ALL if MODE != Mode.DEPLOY else TimeCoverage.ALL
 #For internal RTC, set the current date and time manually (year, month, day, weekday, hours, minutes, seconds, subseconds).
 START_DATETIME = (2025, 5, 15, 5, 12, 12, 0, 0)
 #defining operation times for camera, depending on its operation time mode

@@ -6,6 +6,7 @@ from pyb import Pin, Timer, ExtInt
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, Illumination
 
 import config.settings as cfg
+from config.settings import TimeCoverage
 from util.timeutil import Rtc, Suntime
 
 # resistors values on voltage divider circuits
@@ -137,9 +138,9 @@ class PowerManagement:
             print("Outside operation time - current time:",time.localtime()[0:6])
             self.illumination.off(message="before deep sleep")     
             #compute time until wake-up
-            if (cfg.TIME_COVERAGE == "day"):
+            if (cfg.TIME_COVERAGE == TimeCoverage.DAY):
                 sleep_time = self.suntime.time_until_sunrise()
-            elif (cfg.TIME_COVERAGE == "night"):
+            elif (cfg.TIME_COVERAGE == TimeCoverage.NIGHT):
                 sleep_time = self.suntime.time_until_sunset()
             self.session.save()
             self.session.log_status(self.get_battery_voltage(), "Outside operation time - Sleeping")
