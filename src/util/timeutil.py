@@ -1,6 +1,12 @@
 import machine, pyb, time
 import config.settings as cfg
 
+HOUR_TO_MINUTES = 60
+HOUR_IDX = 3
+MINUTE_IDX = 4
+SUNRISE_MINUTES = cfg.SUNRISE_HOUR * HOUR_TO_MINUTES + cfg.SUNRISE_MINUTE
+SUNSET_MINUTES = cfg.SUNSET_HOUR * HOUR_TO_MINUTES + cfg.SUNSET_MINUTE
+
 ### Sunrise and sunset class ###
 class Suntime:
 
@@ -17,7 +23,7 @@ class Suntime:
     # sunrise and sunset times
     # --- Output variables ---
     # daytime - boolean whever its day or not
-    def is_daytime(self):
+    def is_daytime_old(self):
         # get current time in milliseconds
         nowms = ((time.localtime()[3]*60+time.localtime()[4])*60+time.localtime()[5])*1000
         # now is daytime
@@ -94,3 +100,16 @@ class Rtc:
         
     def datetime(self):
         return self.rtc.datetime()
+    
+rtc = Rtc()
+
+def datetime():
+    return rtc.datetime()
+
+def is_daytime(self):
+    # Get current hour and minute
+    t = datetime()
+    # Convert times to minutes
+    current_minutes = t[HOUR_IDX] * HOUR_TO_MINUTES + t[MINUTE_IDX]
+    # Check if current time is between sunrise and sunset
+    return SUNRISE_MINUTES <= current_minutes < SUNSET_MINUTES
