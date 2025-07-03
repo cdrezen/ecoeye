@@ -6,8 +6,7 @@ from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
 import sensor, machine, image
 # import external functions
-from ecofunctions import *
-from hardware.power import PowerManagement
+from hardware.power import PowerManagement, start_check
 from hardware.led import *
 from logging.session import Session
 from vision.frame import Frame
