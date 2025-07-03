@@ -1,29 +1,26 @@
 # import user defined parameters
 import config.settings as cfg
-from config.settings import Mode, ImageType, ML_Mode
+from config.settings import Mode, ML_Mode
 #import libraries
 from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
-import sensor, time, machine, image
+import sensor, machine, image
 # import external functions
 from ecofunctions import *
 from hardware.power import PowerManagement
 from hardware.led import *
-from util.timeutil import Suntime, Rtc
 from logging.session import Session
 from vision.frame import Frame
 from vision.frame_differencer import FrameDifferencer
 from vision.classifier import Classifier
+from util import timeutil
 
 class App:
     def __init__(self):
-        self.solartime = Suntime(cfg.TIME_COVERAGE, cfg.SUNRISE_HOUR, cfg.SUNRISE_MINUTE, cfg.SUNSET_HOUR, cfg.SUNSET_MINUTE)
-        self.rtc = Rtc()
-        self.illumination = Illumination()
         self.camera = Camera()
         self.session: Session | None = None
+        self.illumination = Illumination()
         self.power_mgmt: PowerManagement
-        self.is_night: bool
         self.frame_differencer: FrameDifferencer
         self.classifier: Classifier
         self.detectionlog: DetectionLogger | None = None
@@ -36,17 +33,17 @@ class App:
         # On wakeup from deep sleep, fetch environment from session.json
         if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
             self.session = Session().load()
-            if not self.session: self.session = Session().create(self.rtc)
+            if not self.session: self.session = Session().create()
             print_status="Script start - Waking"
         # create and initialize new folders only on powerup or soft reset
         elif (cfg.MODE != Mode.LIVE_VIEW):
             # create necessary files & folders
-            self.session = Session().create(self.rtc)
+            self.session = Session().create()
             print_status="Script start - Initialising"
         else:
             print_status="Script start - Live view"
 
-        self.power_mgmt = PowerManagement(self.illumination, self.solartime, self.rtc, self.session)
+        self.power_mgmt = PowerManagement(self.illumination, self.session)
         
         if self.session:
             self.detectionlog=self.session.detectionlog
@@ -65,8 +62,6 @@ class App:
         
         self.image_width = winrect.w if winrect else sensor.width()
         self.image_height = winrect.h if winrect else sensor.height()
-
-        self.clock = time.clock()
 
         if(cfg.FRAME_DIFF_ENABLED):
             self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, 
@@ -112,18 +107,18 @@ class App:
     def run(self):
         ### MAIN LOOP ###
         while(True):
-            self.clock.tick()
-            self.is_night = not self.solartime.is_daytime()
+            
+            timeutil.clock.tick()
 
             # turn ON illumination LED at night if always ON || turn OFF illumination LED at daytime, blink busy led every period
-            self.illumination.update(self.is_night)
+            self.illumination.update()
 
             # handle power mangment, enter deeplseep if needed, lower frame rate using a configured delay
             self.power_mgmt.update()
 
             ### Take and process picture ###
             
-            frame = self.camera.take_picture(self.is_night, self.clock)
+            frame = self.camera.take_picture()
             
             if(self.frame_differencer):
                 frame = self.frame_differencer.update(frame)
@@ -139,7 +134,7 @@ class App:
 
             ###
 
-            print("Frames per second: %s" % str(round(self.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
+            print("Frames per second: %s" % str(round(timeutil.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
 
 
 # Create and run the application

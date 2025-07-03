@@ -73,8 +73,6 @@ WIN_RECT = Rect(960,0,1600,1600)
 #wether to control number of frame buffers or not (<1)
 NB_SENSOR_FRAMEBUFFERS = 1
 #set JPEG quality (90: ~1 MB, 95: ~2MB, 100: ~7MB). Hardly discernible improvement above 93
-#0: minimum
-#100: maximum
 JPEG_QUALITY = 93
 
 ### EXPOSURE ###
@@ -201,12 +199,16 @@ BUSY_LED_DURATION_MS = 500
 #night: during the night (between sunrise and sunset)
 #day: during the day (between sunset and sunrise)
 #24h: all the time
-TIME_COVERAGE = "24h" if MODE != Mode.DEPLOY else "24h"
-# select which RTC to use
-# onboard : internal STM32 RTC (10 min offset every 6 hours)
-# ds3231 : IR shield v3 shield (green) with ML621 coin cell battery
-# pcf8563 : WUV shield (red) with CR1220 coin cell battery
-RTC_MODE = 'onboard' if MODE != Mode.DEPLOY else 'onboard'
+class TimeCoverage:
+    """
+    "enum" for classify modes.
+    (py enums not inluded in micropython)
+    """
+    ALL:int = 0
+    DAY:int = 1
+    NIGHT:int = 2
+
+TIME_COVERAGE = TimeCoverage.ALL if MODE != Mode.DEPLOY else TimeCoverage.ALL
 #For internal RTC, set the current date and time manually (year, month, day, weekday, hours, minutes, seconds, subseconds).
 START_DATETIME = (2025, 5, 15, 5, 12, 12, 0, 0)
 #defining operation times for camera, depending on its operation time mode
@@ -214,22 +216,3 @@ SUNRISE_HOUR = 5
 SUNRISE_MINUTE = 17
 SUNSET_HOUR = 18
 SUNSET_MINUTE = 34
-
-### CONNECTIVITY ###
-# whether to use WiFi, WiFi shield needs to be installed
-WIFI_ENABLED = False
-# _____ wifi enabled only parameters _____
-# Wifi name and password
-WIFI_SSID = ""
-WIFI_KEY = ""
-# url link to image/data/notification hosting website
-UPLOAD_DATA_API_URL = ""
-UPLOAD_IMG_URL = ""
-# which data to transfer (ATM only send_confidence is implemented)
-UPLOAD_CONFIDENCE_ENABLED = False
-UPLOAD_IMAGE_ENABLED = False
-UPLOAD_DIFFERENCING_ENABLED = False
-UPLOAD_VOLTAGE_ENABLED = False
-#  _____ advanced setting _____
-#confidence above which the image is sent over wifi
-UPLOAD_CONFIDENCE_THRESHOLD = 0.5

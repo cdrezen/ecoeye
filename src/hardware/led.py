@@ -3,6 +3,7 @@ import pyb
 from pyb import Pin, Timer
 import sensor
 import config.settings as cfg
+from util import timeutil
 
 # ⚊⚊⚊⚊⚊ LED ON ⚊⚊⚊⚊⚊
 def LED_RED_ON():
@@ -279,7 +280,9 @@ class Illumination:
     def can_turn_off(self):
         return self.enabled and self.led_night_mode != 'on'
 
-    def update(self, is_night):
+    def update(self):
+        is_night = not timeutil.is_daytime()
+        
         if is_night:
             if self.can_turn_on(is_night):
                 self.on("during nighttime")

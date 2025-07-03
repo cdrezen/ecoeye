@@ -1,12 +1,9 @@
-import config.settings as cfg
-import os, time
-import pyb
-import json
+import os, pyb, json
 from logging.csv import Csv
 from logging.detection_logger import DetectionLogger
 from logging.image_logger import ImageLogger
 from vision.frame import Frame
-
+from util import timeutil
 
 class Session:
     """
@@ -21,7 +18,7 @@ class Session:
     IMAGELOG_FILENAME = 'images.csv'
     STATUSLOG_FILENAME = 'status.csv'
 
-    def create(self, rtc):
+    def create(self):
         """
         Create a new session and initialize the necessary files and folders.
         """
@@ -34,7 +31,7 @@ class Session:
 
         print(os.listdir())
         
-        self.path = f"{self.DATA_FOLDER}/{self._find_new_folder_name(rtc)}"
+        self.path = f"{self.DATA_FOLDER}/{self._find_new_folder_name()}"
 
         print("Creating new session path:", self.path)
     
@@ -53,24 +50,10 @@ class Session:
         if (not "jpegs" in filenames): 
             os.mkdir("jpegs")
 
-        # filenames = os.listdir("jpegs")
-
-        # if (cfg.FRAME_DIFF_ENABLED and not "reference" in filenames): 
-        #     os.mkdir("jpegs/reference")
-        
-        # if (cfg.BLOBS_EXPORT_METHOD!="none" and not "blobs" in filenames): 
-        #     os.mkdir("jpegs/blobs")
-
-        # for roi_temp in cfg.ROI_RECTS:
-        #     subfolder_name = '_'.join(map(str,roi_temp))
-        #     if (not subfolder_name in filenames): 
-        #         os.mkdir("jpegs/"+subfolder_name)
-        #         print("Created ROI",subfolder_name,"subfolder.")
- 
         self.save()
         return self
     
-    def _find_new_folder_name(self, rtc):
+    def _find_new_folder_name(self):
         """
         Find the new folder name based on the current date and time and current folders count.
         """
@@ -82,7 +65,7 @@ class Session:
         new_folder_number=len(foldernames)
 
         #create folder for new deployment to avoid overwriting images
-        date = rtc.datetime()
+        date = timeutil.datetime()
         # format from date (YYYY-M-D and HH-MM-SS)
         date_part = f"{date[0]}-{date[1]}-{date[2]}_{date[4]}-{date[5]}-{date[6]}"
         new_folder_name = f"{new_folder_number} {date_part}"
@@ -151,7 +134,7 @@ class Session:
 
         adc  = pyb.ADCAll(12)
 
-        date = str("-".join(map(str,time.localtime()[0:6])))
+        date = str("-".join(map(str, timeutil.datetime()[0:6])))
         usb_connected = str(pyb.USB_VCP().isconnected())
         core_temperature_C = str(adc.read_core_temp())
 
