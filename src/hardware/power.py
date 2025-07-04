@@ -169,94 +169,27 @@ class PowerManagement:
                 deepsleep(cfg.PICTURE_DELAY_MS)
                 self.sleep_if_low_bat("Delay loop - Waking")
 
-class SleepVar:
-    """
-    Class to handle file variables for hibernation.
-    """
-
-    def __init__(self, path):
-        self.path = path
-        
-    def read(self):
-        """
-        Read the sleep variable from the file.
-        """
-        with open(self.path, 'r') as file:
-            val = eval(file.read())
-        return val
-    
-    def write(self, val):
-        """
-        Write the sleep variable to the file.
-        """
-        with open(self.path, 'w') as file:
-            file.write(str(val))
-        return val
-    
-END_EPOCH_PATH = '/sdcard/dsleepend.txt'
-WAKEUP_EPOCH_PATH = '/sdcard/dsleepwakeup.txt'
 SLEEP_BLINK_MS = 200
 SLEEP_NB_BLINK = 2
 
-def deepsleep(sleep_time: int):
+def deepsleep(sleep_time: int, wakeup_interval: int = cfg.DEEPSLEEP_DEFAULT_DURATUION_MS):
     """
-    Hibernation to disk or "deep sleep". Resets script upon wakeup. 
-    Wakeup time is computed before sleep and fetched 
-    upon wakeup to retrieve time and date. Blinks the the led in red before going to sleep.
+    Shut almost everything down and wakeup with rtc timeout, aka. "deep sleep". Resets script upon wakeup. 
+    Blinks the the led in red before going to sleep.
 
     Args: 
-        sleep_time: time until wakeup in ms. 0 for ongoing sleep, the function will read the wakeup time from disk.
+        sleep_time: time until wakeup in ms.
     """
-    end_epoch_filevar = SleepVar(END_EPOCH_PATH)
-    wakeup_epoch_filevar = SleepVar(WAKEUP_EPOCH_PATH)
-    
-    # create deep sleep end time file on the initial sleep time call of tthis function
-    if(sleep_time > 0):
-        print(f"Going to deep sleep for {sleep_time} ms")
-        LED_RED_BLINK(SLEEP_BLINK_MS, SLEEP_NB_BLINK)
-        # compute deep sleep end time in epoch seconds and write it to disk as string
-        end_epoch = time.mktime(time.localtime()) + math.floor(sleep_time / timeutil.MS_PER_SEC)
-        end_epoch_filevar.write(end_epoch)
-    else:
-        # get wakeup time from file
-        end_epoch = end_epoch_filevar.read()
 
-    # compute deep sleep wakeup time in epoch seconds
-    wakeup_epoch = time.mktime(time.localtime()) + math.floor(cfg.DEEPSLEEP_DEFAULT_INTERVAL_MS / timeutil.MS_PER_SEC)
-    # make sure sleep doesnt surpass the sleep end time
-    if(wakeup_epoch > end_epoch):
-        nap_time = (end_epoch - time.mktime(time.localtime()))*timeutil.MS_PER_SEC
-        wakeup_epoch = end_epoch
-    else:
-        nap_time = cfg.DEEPSLEEP_DEFAULT_INTERVAL_MS
-
-    # create deep sleep wakeup file and write deep sleep wakeup epoch
-    wakeup_epoch_filevar.write(wakeup_epoch)
-
+    print(f"Going to deep sleep for {sleep_time} ms at (Y,M,D,H,M,S): {timeutil.datetime()[0:6]}")
     # schedule wakeup and hibernate
-    pyb.RTC().wakeup(math.floor(nap_time/timeutil.MS_PER_SEC)*timeutil.MS_PER_SEC)
+    pyb.RTC().wakeup(sleep_time)
     sensor.sleep(True)
     sensor.shutdown(True)
     pyb.standby()
     return
 
 def on_reset_wakeup():
-    print("Waking up from hibernation")
-    # get wakeup time from file
-
-    end_epoch = SleepVar(END_EPOCH_PATH).read()
-    wakeup_epoch = SleepVar(END_EPOCH_PATH).read()
-
-    # get current supposed time and convert to rtc tuple
-    wakeup_localtime = time.localtime(wakeup_epoch)
-    print(f"Wakeup time: {wakeup_localtime[0:6]} (Y,M,D,H,M,S)\n localtime: {time.localtime()[0:6]}")
-    rtc_time = timeutil.localtime_to_rtc_datetime(wakeup_localtime)
-    # update RTC time
-    pyb.RTC().datetime(rtc_time)
-
-    # check if end time has not been reached
-    if(wakeup_epoch < end_epoch):
-        # hibernate with wakeup time previously stored in file
-        deepsleep(0)
+    print(f"Waking up at: {timeutil.datetime()[0:6]} (Y,M,D,H,M,S)")
 
 
