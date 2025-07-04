@@ -118,7 +118,7 @@ class PowerManagement:
             if self.session: 
                 self.session.save()
                 self.session.log_status(v, PowerManagement.BATTERY_LOW_STR)
-            indicator_dsleep(timeutil.ms_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY)
+            deepsleep(timeutil.ms_until_sunrise() + PowerManagement.AFTER_SUNRISE_DELAY)
         else:
             print("Battery voltage is sufficient.")
 
@@ -140,7 +140,7 @@ class PowerManagement:
                 sleep_time = timeutil.ms_until_sunset()
             self.session.save()
             self.session.log_status(self.get_battery_voltage(), "Outside operation time - Sleeping")
-            indicator_dsleep(sleep_time)
+            deepsleep(sleep_time)
         
     def update(self):
         """
@@ -166,90 +166,97 @@ class PowerManagement:
                 self.session.save()
                 self.session.log_status(self.get_battery_voltage(), "Delay loop - Sleeping")
                 # go to sleep until next picture with blinking indicator
-                indicator_dsleep(cfg.PICTURE_DELAY_MS)
+                deepsleep(cfg.PICTURE_DELAY_MS)
                 self.sleep_if_low_bat("Delay loop - Waking")
 
-# DEEP SLEEP w/ indicators
-# go to deep sleep, resets script upon wakeup
-# wakeup time is computed before sleep and fetched
-# upon wakeup to retrieve time and date
-# --- Indicators ---
-# RED blink 500ms when going to sleep
-# BLUE active_LED_duration_ms every active_LED_interval_ms
-# --- Input arguments ---
-# sleep_time - time until wakeup in ms
-# active_LED_interval_ms - time between indicator signal in ms
-# --- Output variables ---
-# none
-def indicator_dsleep(sleep_time):
+class SleepVar:
+    """
+    Class to handle file variables for hibernation.
+    """
+
+    def __init__(self, path):
+        self.path = path
+        
+    def read(self):
+        """
+        Read the sleep variable from the file.
+        """
+        with open(self.path, 'r') as file:
+            val = eval(file.read())
+        return val
+    
+    def write(self, val):
+        """
+        Write the sleep variable to the file.
+        """
+        with open(self.path, 'w') as file:
+            file.write(str(val))
+        return val
+    
+END_EPOCH_PATH = '/sdcard/dsleepend.txt'
+WAKEUP_EPOCH_PATH = '/sdcard/dsleepwakeup.txt'
+SLEEP_BLINK_MS = 200
+SLEEP_NB_BLINK = 2
+
+def deepsleep(sleep_time: int):
+    """
+    Hibernation to disk or "deep sleep". Resets script upon wakeup. 
+    Wakeup time is computed before sleep and fetched 
+    upon wakeup to retrieve time and date. Blinks the the led in red before going to sleep.
+
+    Args: 
+        sleep_time: time until wakeup in ms. 0 for ongoing sleep, the function will read the wakeup time from disk.
+    """
+    end_epoch_filevar = SleepVar(END_EPOCH_PATH)
+    wakeup_epoch_filevar = SleepVar(WAKEUP_EPOCH_PATH)
+    
     # create deep sleep end time file on the initial sleep time call of tthis function
     if(sleep_time > 0):
-        # print and blink deep sleep time
-        print("Going to deep sleep for ", sleep_time/60000," minutes")
-        LED_RED_BLINK(200,2)
-        # compute deep sleep end time in epoch seconds
-        dsleep_end_epoch = time.mktime(time.localtime()) + math.floor(sleep_time/1000)
-        # create deep sleep end file and write epoch seconds as string
-        with open('/sdcard/VAR/dsleepend.txt', 'w') as timelog:
-            timelog.write(str(dsleep_end_epoch))
+        print(f"Going to deep sleep for {sleep_time} ms")
+        LED_RED_BLINK(SLEEP_BLINK_MS, SLEEP_NB_BLINK)
+        # compute deep sleep end time in epoch seconds and write it to disk as string
+        end_epoch = time.mktime(time.localtime()) + math.floor(sleep_time / timeutil.MS_PER_SEC)
+        end_epoch_filevar.write(end_epoch)
     else:
         # get wakeup time from file
-        with open('/sdcard/VAR/dsleepend.txt', 'r') as timefetch:
-            dsleep_end_epoch = eval(timefetch.read())
+        end_epoch = end_epoch_filevar.read()
 
-    # compute deep sleep interval wakeup time in epoch seconds
-    dsleep_wakeup_epoch = time.mktime(time.localtime()) + math.floor(cfg.DEEPSLEEP_DEFAULT_DURATUION_MS/1000)
+    # compute deep sleep wakeup time in epoch seconds
+    wakeup_epoch = time.mktime(time.localtime()) + math.floor(cfg.DEEPSLEEP_DEFAULT_INTERVAL_MS / timeutil.MS_PER_SEC)
     # make sure sleep doesnt surpass the sleep end time
-    if(dsleep_wakeup_epoch > dsleep_end_epoch):
-        nap_time = (dsleep_end_epoch - time.mktime(time.localtime()))*1000
-        dsleep_wakeup_epoch = dsleep_end_epoch
+    if(wakeup_epoch > end_epoch):
+        nap_time = (end_epoch - time.mktime(time.localtime()))*timeutil.MS_PER_SEC
+        wakeup_epoch = end_epoch
     else:
-        nap_time = cfg.DEEPSLEEP_DEFAULT_DURATUION_MS
+        nap_time = cfg.DEEPSLEEP_DEFAULT_INTERVAL_MS
 
     # create deep sleep wakeup file and write deep sleep wakeup epoch
-    with open('/sdcard/VAR/dsleepwakeup.txt', 'w') as timelog:
-        timelog.write(str(dsleep_wakeup_epoch))
-    # define sleep time and go
-    pyb.RTC().wakeup(math.floor(nap_time/1000)*1000)
-    # put camera into sleep and shut it down
+    wakeup_epoch_filevar.write(wakeup_epoch)
+
+    # schedule wakeup and hibernate
+    pyb.RTC().wakeup(math.floor(nap_time/timeutil.MS_PER_SEC)*timeutil.MS_PER_SEC)
     sensor.sleep(True)
     sensor.shutdown(True)
     pyb.standby()
-    # camera is init on wakeup
     return
 
-# ⚊⚊⚊⚊⚊ script start check ⚊⚊⚊⚊⚊
-# for deep sleep script start
-# --- Input arguments ---
-# none
-# --- Output variables ---
-# none
-def start_check():
-    # get the board reset cause
-    if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
-        print("Starting script from DEEP SLEEP")
-        # get wakeup time from file
-        with open('/sdcard/VAR/dsleepwakeup.txt', 'r') as timefetch:
-            dsleep_wakeup_epoch = eval(timefetch.read())
-        # check if woke up from indicator sleep, i.e. if dsleepend file exists
-        if('dsleepend.txt' in os.listdir('VAR')):
-            with open('/sdcard/VAR/dsleepend.txt', 'r') as timefetch:
-                dsleep_end_epoch = eval(timefetch.read())
+def on_reset_wakeup():
+    print("Waking up from hibernation")
+    # get wakeup time from file
 
-        # epoch seconds to time tuple to rtc tuple
-        dsleep_wakeup_time = time.localtime(dsleep_wakeup_epoch)
-        dsleep_wakeup_rtc = (dsleep_wakeup_time[0], dsleep_wakeup_time[1], dsleep_wakeup_time[2], 1, dsleep_wakeup_time[3], dsleep_wakeup_time[4], dsleep_wakeup_time[5], 0)
-        # initialise and update RTC
-        pyb.RTC().datetime(dsleep_wakeup_rtc)
+    end_epoch = SleepVar(END_EPOCH_PATH).read()
+    wakeup_epoch = SleepVar(END_EPOCH_PATH).read()
 
-        # check if end time has not been reached
-        if(dsleep_wakeup_epoch < dsleep_end_epoch):
-            # indicator LED : the white firmware is used as the indicator now
-            #LED_BLUE_BLINK(500,1)
-            # sleep time is zero for interval sleep, indicator is 60s hardcoded
-            indicator_dsleep(0)
-    else:
-        print("Starting script from POWER ON")
-    return
+    # get current supposed time and convert to rtc tuple
+    wakeup_localtime = time.localtime(wakeup_epoch)
+    print(f"Wakeup time: {wakeup_localtime[0:6]} (Y,M,D,H,M,S)\n localtime: {time.localtime()[0:6]}")
+    rtc_time = timeutil.localtime_to_rtc_datetime(wakeup_localtime)
+    # update RTC time
+    pyb.RTC().datetime(rtc_time)
+
+    # check if end time has not been reached
+    if(wakeup_epoch < end_epoch):
+        # hibernate with wakeup time previously stored in file
+        deepsleep(0)
 
 

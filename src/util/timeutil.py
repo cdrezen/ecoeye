@@ -1,19 +1,45 @@
 import machine, pyb, time
 import config.settings as cfg
 from config.settings import TimeCoverage
+from micropython import const
 
 # Time conversion constants
-MIN_PER_HOUR = 60
-SEC_PER_MIN = 60
-MS_PER_SEC = 1000
-SEC_PER_HOUR = MIN_PER_HOUR * SEC_PER_MIN
-MS_PER_MIN = SEC_PER_MIN * MS_PER_SEC
-MS_PER_HOUR = MIN_PER_HOUR * MS_PER_MIN
-MS_PER_DAY = 24 * MS_PER_HOUR
+MIN_PER_HOUR:int = const(60)
+SEC_PER_MIN:int = const(60)
+MS_PER_SEC:int = const(1000)
+SEC_PER_HOUR:int = const(MIN_PER_HOUR * SEC_PER_MIN)
+MS_PER_MIN:int = const(SEC_PER_MIN * MS_PER_SEC)
+MS_PER_HOUR:int = const(MIN_PER_HOUR * MS_PER_MIN)
+MS_PER_DAY:int = const(24 * MS_PER_HOUR)
 
-HOUR_IDX = 3
-MINUTE_IDX = 4
-SECONDS_IDX = 5
+class LTimeIdx:
+    """
+    Class to hold indices for time.localtime tuple elements.
+    This is used to avoid confusion between RTC and localtime indices.
+    """
+    YEAR:int = const(0)
+    MONTH:int = const(1)
+    DAY:int = const(2)
+    HOURS:int = const(3)
+    MINUTES:int = const(4)
+    SECONDS:int = const(5)
+    WEEKDAY:int = const(6)
+    YEARDAY:int = const(7)
+
+class RTCTimeIdx():
+    """
+    Class to hold indices for RTC.datetime tuple elements.
+    This is used to avoid confusion between RTC and localtime indices.
+    """
+    YEAR:int = const(LTimeIdx.YEAR)
+    MONTH:int = const(LTimeIdx.MONTH)
+    DAY:int = const(LTimeIdx.DAY)
+    HOURS:int = const(LTimeIdx.HOURS + 1)
+    MINUTES:int = const(LTimeIdx.MINUTES + 1)
+    SECONDS:int = const(LTimeIdx.SECONDS + 1)
+    WEEKDAY:int = const(LTimeIdx.WEEKDAY - 3)
+    SUBSECONDS:int = const(7)
+
 SUNRISE_MS = cfg.SUNRISE_HOUR * MS_PER_HOUR + cfg.SUNRISE_MINUTE * MS_PER_MIN
 SUNSET_MS = cfg.SUNSET_HOUR * MS_PER_HOUR + cfg.SUNSET_MINUTE * MS_PER_MIN
 
@@ -22,23 +48,34 @@ clock = time.clock()
 def reset_rtc(datetime: tuple[int, int, int, int, int, int, int, int] = cfg.START_DATETIME):
     pyb.RTC().datetime(datetime)
 
-### TODO: move to appropriate module or class
-# set rtc from user defined date and time only on power on
-if (machine.reset_cause() != machine.DEEPSLEEP_RESET):
-    reset_rtc()
-###
-
 def datetime():
     # returns a tuple (year, month, day, weekday, hours, minutes, seconds, subseconds)
     # https://forums.openmv.io/t/using-time-localtime-vs-rtc-datetime/11190/2
     return time.localtime()
+
+def localtime_to_rtc_datetime(localtime: tuple[int, int, int, int, int, int, int, int]) -> tuple[int, int, int, int, int, int, int, int]:
+    """
+    Converts a localtime tuple to an RTC datetime tuple. Loss of yearday value and subseconds set to 0.
+    Localtime: (year, month, day, hours, minutes, seconds, weekday, yearday)
+    RTC: (year, month, day, weekday, hours, minutes, seconds, subseconds)
+    """
+    return (
+        localtime[LTimeIdx.YEAR],
+        localtime[LTimeIdx.MONTH],
+        localtime[LTimeIdx.DAY],
+        localtime[LTimeIdx.WEEKDAY],
+        localtime[LTimeIdx.HOURS],
+        localtime[LTimeIdx.MINUTES],
+        localtime[LTimeIdx.SECONDS],
+        0  # subseconds are ignored
+    )
 
 def ms_since_midnight():
     """
     Returns the current time in milliseconds since midnight. ingores subseconds (0-255).
     """
     t = datetime()
-    return (t[HOUR_IDX] * MS_PER_HOUR) + (t[MINUTE_IDX] * MS_PER_MIN) + (t[SECONDS_IDX] * MS_PER_SEC)
+    return (t[LTimeIdx.HOURS] * MS_PER_HOUR) + (t[LTimeIdx.MINUTES] * MS_PER_MIN) + (t[LTimeIdx.SECONDS] * MS_PER_SEC)
 
 def is_ms_in_daytime(ms):
     """

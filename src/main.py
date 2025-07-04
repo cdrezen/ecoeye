@@ -6,13 +6,14 @@ from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
 import sensor, machine, image
 # import external functions
-from hardware.power import PowerManagement, start_check
+from hardware.power import PowerManagement
 from hardware.led import *
 from logging.session import Session
 from vision.frame import Frame
 from vision.frame_differencer import FrameDifferencer
 from vision.classifier import Classifier
 from util import timeutil
+from hardware import power
 
 class App:
     def __init__(self):
@@ -24,21 +25,19 @@ class App:
         self.classifier: Classifier
         self.detectionlog: DetectionLogger | None = None
         
-        # perform quick start from sleep check
-        start_check()
 
-        print(f"Initializing on {Mode.to_str(cfg.MODE)} mode...")
-
-        # On wakeup from deep sleep, fetch environment from session.json
         if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
+            # On wakeup from hibernation update rtc & fetch environment from session.json
+            power.on_reset_wakeup()
             self.session = Session().load()
             if not self.session: self.session = Session().create()
             print_status="Script start - Waking"
-        # create and initialize new folders only on powerup or soft reset
         elif (cfg.MODE != Mode.LIVE_VIEW):
-            # create necessary files & folders
+            # only on powerup or soft reset
+            # init rtc & create necessary files & folders
+            timeutil.reset_rtc(cfg.START_DATETIME)
             self.session = Session().create()
-            print_status="Script start - Initialising"
+            print_status=f"Initializing on {Mode.to_str(cfg.MODE)} mode..."
         else:
             print_status="Script start - Live view"
 
