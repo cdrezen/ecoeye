@@ -1,40 +1,46 @@
-import machine, os, pyb, sensor, time
+import machine, os, time
 from hardware.led import LED_BLUE_BLINK, LED_RED_BLINK
+from hardware import power
+from util import timeutil
 
-## To use as main script since it will cause reset:
-def deepsleep(sleep_time: int):
-    """
-    Hibernation to disk or "deep sleep". Resets script upon wakeup.
-    Wakeup time is computed before sleep and fetched
-    upon wakeup to retrieve time and date. Blinks the the led in red before going to sleep.
+## To use as "main.py" script as its depending on "reset" mechanism
 
-    Args:
-        sleep_time: time until wakeup in ms. 0 for ongoing sleep, the function will read the wakeup time from disk.
-    """
+SLEEP_TIME = 10000  # Sleep time in milliseconds
+SLEEP_TIME_SEC = SLEEP_TIME / timeutil.MS_PER_SEC
+ACC_TOLERANCE_SEC = 1 # Tolerance for sleep time accuracy in seconds
+
+first_run = ("start" not in os.listdir())
+
+if first_run:
     LED_RED_BLINK(300, 2)
 
     with open('log.txt', 'a') as log:
-        log.write(f"Going to sleep for {sleep_time} ms at (Y,M,D,H,M,S): {time.localtime()[0:6]}\n")
+        log.write(f"Going to sleep for {SLEEP_TIME} ms at (Y,M,D,H,M,S): {time.localtime()[0:6]}\n")
 
-    pyb.RTC().wakeup(sleep_time)
-    sensor.sleep(True)
-    sensor.shutdown(True)
-    pyb.standby()
-    return
+    start_time_sec = time.time()
+    with open('start', 'w') as f:
+        f.write(str(start_time_sec))
 
-def on_reset_wakeup():
-    with open('log.txt', 'a') as log:
-        log.write("Waking up from hibernation\n")
-        log.write(f"Wakeup time (Y,M,D,H,M,S): localtime: {time.localtime()[0:6]}\n")
+    power.deepsleep(SLEEP_TIME)
 
-first_run = ("log.txt" not in os.listdir())
+elif machine.reset_cause() == machine.DEEPSLEEP_RESET:
 
-if machine.reset_cause() == machine.DEEPSLEEP_RESET:
+    end_time_sec = time.time()
+
     LED_BLUE_BLINK(300, 2)
-    on_reset_wakeup()
 
-if not first_run:
+    with open('start', 'r') as f:
+        start_time_sec = int(f.read())
+
+    sleep_sec = end_time_sec - start_time_sec
+
+    with open('log.txt', 'a') as log:
+        log.write(f"Wakeup time (Y,M,D,H,M,S): localtime: {time.localtime()[0:6]}, slept for {sleep_sec} seconds\n")
+
+    assert SLEEP_TIME_SEC - ACC_TOLERANCE_SEC <= sleep_sec >= SLEEP_TIME_SEC + ACC_TOLERANCE_SEC, "Sleep time mismatch"
+
+
+else:
     while True:
         pass
 
-deepsleep(10000)

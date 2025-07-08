@@ -172,7 +172,7 @@ class PowerManagement:
 SLEEP_BLINK_MS = 200
 SLEEP_NB_BLINK = 2
 
-def deepsleep(sleep_time: int, wakeup_interval: int = cfg.DEEPSLEEP_DEFAULT_DURATUION_MS):
+def deepsleep(sleep_time: int):
     """
     Shut almost everything down and wakeup with rtc timeout, aka. "deep sleep". Resets script upon wakeup. 
     Blinks the the led in red before going to sleep.
