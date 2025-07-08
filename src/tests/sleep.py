@@ -39,8 +39,8 @@ elif machine.reset_cause() == machine.DEEPSLEEP_RESET:
 
     assert SLEEP_TIME_SEC - ACC_TOLERANCE_SEC <= sleep_sec >= SLEEP_TIME_SEC + ACC_TOLERANCE_SEC, "Sleep time mismatch"
 
-
 else:
+    # test already executed, just keep the script running to prevent shutdown
     while True:
         pass
 

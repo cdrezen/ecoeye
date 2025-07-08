@@ -49,7 +49,9 @@ def reset_rtc(datetime: tuple[int, int, int, int, int, int, int, int] = cfg.STAR
     pyb.RTC().datetime(datetime)
 
 def datetime():
-    # returns a tuple (year, month, day, weekday, hours, minutes, seconds, subseconds)
+    """
+    returns time.localtime(), a tuple (year, month, mday, hour, minute, second, weekday, yearday)
+    """
     # https://forums.openmv.io/t/using-time-localtime-vs-rtc-datetime/11190/2
     return time.localtime()
 
