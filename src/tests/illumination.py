@@ -1,4 +1,5 @@
 from hardware.led import *
+import sensor
 ### test led
 
 ### test illumination

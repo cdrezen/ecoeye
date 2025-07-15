@@ -1,26 +1,30 @@
 ### VOLTAGE DIVIDER ###
 from logging.session import Session
-import pyb, time, machine, sensor, os, math
+import pyb, sensor
 from pyb import Pin, Timer
-from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, LED_RED_BLINK, Illumination
-
+from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, Illumination
 import config.settings as cfg
-from config.settings import TimeCoverage
+from config.enums import TimeCoverage
 from util import timeutil
+from micropython import const
+
+#how many voltage readings to average over to obtain the value that will be logged
+VOLTAGE_AVG_SAMPLE_COUNT = const(10)
+#how much delay between voltage readings (in milliseconds)
+VOLTAGE_READINGS_DELAY_MS = const(10)
+#minimum voltage for image sensor operation. theoretically, when voltage is below 2.7 V, the image sensor stops working
+VBAT_MINIMUM_VOLT = const(0)
+
 # resistors values on voltage divider circuits
-R_1_PMS_LED = 30
-R_2_PMS_LED = 8.82352941176
-R_1_PMS_noLED = 30
-R_2_PMS_noLED = 100
-R_1_noPMS_LED = 2.88
-R_2_noPMS_LED = 9.67741935484
-R_1_noPMS_noLED = 200
-R_2_noPMS_noLED = 680
+R_1_PMS_noLED = const(30)
+R_2_PMS_noLED = const(100)
+R_1_noPMS_noLED = const(200)
+R_2_noPMS_noLED = const(680)
 
 ### VOLTAGE DIVIDER READING CLASS
 class Battery:
 
-    def __init__(self, R_1, R_2, vdiv_available=cfg.VOLTAGE_DIV_AVAILABLE, nb_read=cfg.VOLTAGE_AVG_SAMPLE_COUNT, read_delay=cfg.VOLTAGE_READINGS_DELAY_MS):
+    def __init__(self, R_1, R_2, vdiv_available=cfg.VOLTAGE_DIV_AVAILABLE, nb_read=VOLTAGE_AVG_SAMPLE_COUNT, read_delay=VOLTAGE_READINGS_DELAY_MS):
         """
         Initialize the Battery class with voltage divider parameters.
         
@@ -76,7 +80,7 @@ class Battery:
     def is_low(self, v=None):
         if v is None:
             v = self.read_voltage()
-        return (v!=-1 and v < cfg.VBAT_MINIMUM_VOLT and not pyb.USB_VCP().isconnected())
+        return (v!=-1 and v < VBAT_MINIMUM_VOLT and not pyb.USB_VCP().isconnected())
 
 class PowerManagement:
     """
@@ -91,12 +95,8 @@ class PowerManagement:
         self.enabled = enabled
         self.illumination = illumination
         self.session = session
-        if self.enabled:
-            r1 = R_1_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_PMS_noLED
-            r2 = R_2_PMS_LED if cfg.LED_MODULE_AVAILABLE else R_2_PMS_noLED
-        else:
-            r1 = R_1_noPMS_LED if cfg.LED_MODULE_AVAILABLE else R_1_noPMS_noLED
-            r2 = R_2_noPMS_LED if cfg.LED_MODULE_AVAILABLE else R_2_noPMS_noLED
+        r1 = R_1_PMS_noLED if self.enabled else R_1_noPMS_noLED
+        r2 = R_2_PMS_noLED if self.enabled else R_2_noPMS_noLED
         self.battery = Battery(r1, r2)
         self.start_time_check_battery = pyb.millis()
 

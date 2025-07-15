@@ -1,7 +1,10 @@
 from hardware.led import LED_YELLOW_OFF, LED_YELLOW_ON
 import math, tf, image
 import config.settings as cfg
-from config.settings import ML_Mode
+from config.enums import ML_Mode
+
+# Add more colors if you are detecting more than 7 types of classes at once
+_CLASS_COLORS = [(255,0,0),(0,255,0),(255,255,0),(0,0,255),(255,0,255),(0,255,255),(255,255,255)]
 
 ### TODO: use design pattern
 class Classifier:
@@ -69,11 +72,6 @@ class Classifier:
 
     def classify_image(self, img, roi_rect=None):
         """Classify using sliding window approach"""
-
-        #only analyse when classification is feasible within reasonable time frame
-        # ? 2 consts ? deferred analysis of images when scale is too small (not working yet)
-        if (cfg.MIN_IMAGE_SCALE < cfg.THRESHOLD_IMAGE_SCALE_DEFER):
-            return
             
         img = self._rescale_image(img)
         confidence = 0
@@ -131,7 +129,7 @@ class Classifier:
                 if(confidence < detection[4]): 
                     confidence = detection[4]
                 if use_indicators: 
-                    img.draw_rectangle(detection.rect(), color=cfg.CLASS_COLORS[class_id-1], thickness=2)
+                    img.draw_rectangle(detection.rect(), color=_CLASS_COLORS[class_id-1], thickness=2)
                 
                 self.detectionlog.append(
                     picture_id=self.imagelog.picture_count,

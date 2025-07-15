@@ -1,6 +1,6 @@
 # import user defined parameters
 import config.settings as cfg
-from config.settings import Mode, ML_Mode
+from config.enums import Mode, ML_Mode
 #import libraries
 from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
@@ -51,15 +51,13 @@ class App:
         if(cfg.ML_MODE):
             self.classifier = Classifier(self.session)
 
-        winrect = cfg.WIN_RECT if cfg.USE_SENSOR_WINDOWING else None
-
         self.camera.initialize(self.illumination, cfg.SENSOR_PIXFORMAT, cfg.SENSOR_FRAMESIZE,
-                        winrect, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
+                        cfg.WIN_RECT, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
         
         print("camera initialized")
         
-        self.image_width = winrect.w if winrect else sensor.width()
-        self.image_height = winrect.h if winrect else sensor.height()
+        self.image_width = cfg.WIN_RECT.w if cfg.WIN_RECT else sensor.width()
+        self.image_height = cfg.WIN_RECT.h if cfg.WIN_RECT else sensor.height()
 
         if(cfg.FRAME_DIFF_ENABLED):
             self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, 

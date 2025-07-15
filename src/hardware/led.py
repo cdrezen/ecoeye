@@ -1,9 +1,14 @@
 ### LED FUNCTIONS ###
 import pyb
-from pyb import Pin, Timer
-import sensor
 import config.settings as cfg
+from config.enums import LedNightMode
 from util import timeutil
+from micropython import const
+
+#period of blue LED indicating camera is active (in milliseconds, also works when indicators=False)
+_BUSY_LED_INTERVAL_MS = const(60*1000)
+#how long to turn on active LED
+_BUSY_LED_DURATION_MS = const(500)
 
 # ⚊⚊⚊⚊⚊ LED ON ⚊⚊⚊⚊⚊
 def LED_RED_ON():
@@ -232,14 +237,9 @@ def led_green(func):
 
 class Illumination:
 
-    def __init__(self, mode=cfg.LED_MODE, led_night_mode=cfg.LED_NIGHT_MODE, brightness=cfg.LED_MODULE_BRIGHTNESS_PWM, warmup_ms=cfg.LED_MODULE_WARMUP_MS, cooldown_ms=cfg.LED_MODULE_COOLDOWN_MS):
-        self.light = Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6"))
+    def __init__(self, led_night_mode=cfg.LED_NIGHT_MODE):
         self.enabled = False
-        self.mode = mode
         self.led_night_mode = led_night_mode
-        self.brightness = brightness
-        self.warmup_ms = warmup_ms
-        self.cooldown_ms = cooldown_ms
         self.start_time_busy_LED_ms = pyb.millis()
         return
 
@@ -247,38 +247,28 @@ class Illumination:
         if(self.enabled): return
         self.enabled = True
         print("Turning illumination LEDs ON", message)
-        if(self.mode == 'module'):
-            print("Warming up LED module for",self.warmup_ms/1000,"seconds.")
-            self.light.pulse_width_percent(self.brightness)
-            sensor.skip_frames(time = self.warmup_ms)
-        elif(self.mode == 'onboard'):
-            LED_IR_ON()
+        LED_IR_ON()
         return
 
-    def off(self, no_cooldown=False, message=""):
+    def off(self, message=""):
         if(not self.enabled): return
         self.enabled = False
         print("Turning illumination LEDs OFF", message)
-        if(self.mode == 'module'):
-            self.light.pulse_width_percent(0)
-            if(no_cooldown): return
-            print("Letting LED module cool down for",self.cooldown_ms,"seconds.")
-            pyb.delay(self.cooldown_ms)
-        elif(self.mode == 'onboard'):
-            LED_IR_OFF()
+        LED_IR_OFF()
         return
 
-    def toggle(self, no_cooldown=False):
-        self.off(no_cooldown) if self.enabled else self.on()
+    def toggle(self):
+        self.off() if self.enabled else self.on()
         
     def is_enabled(self):
         return self.enabled
 
     def can_turn_on(self, is_night):
-        return not self.enabled and is_night and (self.led_night_mode == "on" or self.led_night_mode != 'off')
+        return not self.enabled and is_night \
+        and (self.led_night_mode == LedNightMode.ON or self.led_night_mode != LedNightMode.OFF)
 
     def can_turn_off(self):
-        return self.enabled and self.led_night_mode != 'on'
+        return self.enabled and self.led_night_mode != LedNightMode.ON
 
     def update(self):
         is_night = not timeutil.is_daytime()
@@ -290,9 +280,9 @@ class Illumination:
             self.off(message="during daytime")
 
         #blink LED every period
-        if (pyb.elapsed_millis(self.start_time_busy_LED_ms) > cfg.BUSY_LED_INTERVAL_MS):
+        if (pyb.elapsed_millis(self.start_time_busy_LED_ms) > _BUSY_LED_INTERVAL_MS):
             self.start_time_busy_LED_ms = pyb.millis()
-            print("Blinking LED indicator after",str(cfg.BUSY_LED_INTERVAL_MS/1000),"seconds")
-            LED_BLUE_BLINK(cfg.BUSY_LED_DURATION_MS)
+            print("Blinking LED indicator after",str(_BUSY_LED_INTERVAL_MS/1000),"seconds")
+            LED_BLUE_BLINK(_BUSY_LED_DURATION_MS)
 
         

@@ -1,6 +1,7 @@
 from hardware.led import LED_WHITE_BLINK, Illumination
 import sensor
 import config.settings as cfg
+from config.enums import ExposureMode
 import sys
 from util.rect import Rect
 from util import timeutil
@@ -17,7 +18,7 @@ class Camera:
     INIT_TIMEOUT = 1000  # ms
         
     def initialize(self, illumination: Illumination, sensor_pixformat, sensor_framesize, windowing_rect: Rect|None =None, 
-                 nb_framebuffers=0, exposure_mode="auto"):
+                 nb_framebuffers=0, exposure_mode=ExposureMode.AUTO):
         """
         Reset and initialize the camera sensor with the configured settings.
         Args:
@@ -105,7 +106,7 @@ class Camera:
         if self.illumination and self.illumination.can_turn_on(is_night):
             self.illumination.on(message="to take the picture")
         
-        if self.exposure_mode == "bias":
+        if self.exposure_mode == ExposureMode.BIAS:
             self.update_exposure_bias(is_night)        
         # Take the picture
         img = sensor.snapshot()
@@ -146,19 +147,19 @@ class Camera:
         
     
     def reset_exposure(self, timeout=EXPOSURE_RESET_TIMEOUT):
-        if self.exposure_mode == "auto":
+        if self.exposure_mode == ExposureMode.AUTO:
             # Auto gain and exposure
             sensor.set_auto_gain(True)
             sensor.set_auto_exposure(True)
-        elif self.exposure_mode == "exposure":
+        elif self.exposure_mode == ExposureMode.EXPOSURE:
             # Auto gain but fixed exposure
             sensor.set_auto_gain(True)
             sensor.set_auto_exposure(False, exposure_us=cfg.EXPOSURE_US)
-        elif self.exposure_mode == "manual":
+        elif self.exposure_mode == ExposureMode.MANUAL:
             # Set fixed exposure and gain
             sensor.set_auto_gain(False, gain_db=cfg.GAIN_DB)
             sensor.set_auto_exposure(False, exposure_us=cfg.EXPOSURE_US)
-        elif self.exposure_mode == "bias":
+        elif self.exposure_mode == ExposureMode.BIAS:
             sensor.set_auto_gain(False, gain_db=0)
             sensor.set_auto_exposure(False, exposure_us=self.last_exposure)
         

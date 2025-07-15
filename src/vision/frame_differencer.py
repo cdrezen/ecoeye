@@ -1,9 +1,15 @@
 import sensor, image, pyb
 import config.settings as cfg
-from config.settings import ML_Mode
+from config.enums import ExposureMode, ML_Mode
 from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
 from vision.frame import Frame
 from vision.image_type import ImageType
+from micropython import const
+
+# How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
+_BACKGROUND_BLEND_LEVEL = const(128)
+# How long to wait for auto blending frame in reference image (in milliseconds)
+_BLEND_TIMEOUT_MS = const(10000)
 
 
 class FrameDifferencer:
@@ -32,7 +38,7 @@ class FrameDifferencer:
         self.started = False
         self.was_triggered = False
         self.initialize_framebuffers()
-        if (cfg.EXPOSURE_MODE=="auto"): 
+        if (cfg.EXPOSURE_MODE==ExposureMode.AUTO): 
             print("ATTENTION: using automatic exposure with frame differencing can result in spurious triggers!")
         
     def initialize_framebuffers(self):
@@ -75,7 +81,7 @@ class FrameDifferencer:
         # low blending of the new image while a high alpha results in high
         # blending of the new image. We need to reverse that for this update.
         #blend with frame that is in buffer
-        frame.img.blend(self.img_ref_fb, alpha=(256-cfg.BACKGROUND_BLEND_LEVEL))
+        frame.img.blend(self.img_ref_fb, alpha=(256-_BACKGROUND_BLEND_LEVEL))
         self.img_ref_fb.replace(frame.img)
 
         if cfg.INDICATORS_ENABLED: LED_CYAN_OFF()
@@ -168,7 +174,7 @@ class FrameDifferencer:
             return frame
         # If the reference image is set, check if we need to blend the background
         # TODO: track detections rects and blend on no movement, multi blobs: mask?
-        elif (self.was_triggered or pyb.elapsed_millis(self.start_time_blending_ms) > cfg.BLEND_TIMEOUT_MS):
+        elif (self.was_triggered or pyb.elapsed_millis(self.start_time_blending_ms) > _BLEND_TIMEOUT_MS):
             self.blend_background(frame)
             self.was_triggered = False
             return frame

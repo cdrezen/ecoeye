@@ -1,6 +1,6 @@
 import machine, pyb, time
 import config.settings as cfg
-from config.settings import TimeCoverage
+from config.enums import TimeCoverage
 from micropython import const
 
 # Time conversion constants
