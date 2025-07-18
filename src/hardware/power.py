@@ -14,6 +14,10 @@ VOLTAGE_AVG_SAMPLE_COUNT = const(10)
 VOLTAGE_READINGS_DELAY_MS = const(10)
 #minimum voltage for image sensor operation. theoretically, when voltage is below 2.7 V, the image sensor stops working
 VBAT_MINIMUM_VOLT = const(0)
+#how often to check the battery
+CHECK_BAT_PERIOD_MS = const(10*60*1000) 
+#threshold of PICTURE_DELAY_S above which the camera goes to sleep between pictures to save power. Below that threshold, the camera will stay on and simply wait
+USE_DSLEEP_THRESHOLD = const(10000)
 
 # resistors values on voltage divider circuits
 R_1_PMS_noLED = const(30)
@@ -150,7 +154,7 @@ class PowerManagement:
         self.sleep_if_not_operation_time()
 
         #check battery voltage (if possible) and log status every period
-        if (pyb.elapsed_millis(self.start_time_check_battery) > cfg.CHECK_BAT_PERIOD_MS):
+        if (pyb.elapsed_millis(self.start_time_check_battery) > CHECK_BAT_PERIOD_MS):
             self.start_time_check_battery = pyb.millis()
             datetime = timeutil.datetime()
             print_status=f"Script running - timed check (Y,M,D) {datetime[0:3]} - (H,M,S) {datetime[4:7]}"
@@ -158,7 +162,7 @@ class PowerManagement:
 
          ### delay to decrease frame rate: ###
         if (cfg.PICTURE_DELAY_MS):
-            if (not cfg.USE_DSLEEP_PIC_DELAY):
+            if (cfg.PICTURE_DELAY_MS < USE_DSLEEP_THRESHOLD):
                 print("Delaying frame capture for", cfg.PICTURE_DELAY_MS, "seconds...")
                 pyb.delay(cfg.PICTURE_DELAY_MS)   
             else:

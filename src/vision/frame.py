@@ -14,9 +14,8 @@ class Frame:
 
     id = 0 # (static) (overflow à 9223372036854775807/(86400*60fps)=1779199852788j)
     BASE_FOLDER = "jpegs"
-    CAN_SAVE_ANY_IMG = cfg.IMG_SAVE_FILTER and ImageType.DEFAULT in cfg.IMG_SAVE_FILTER
-    CAN_SAVE_DETECTION_IMG = cfg.IMG_SAVE_FILTER and ImageType.DETECTION in cfg.IMG_SAVE_FILTER
-    CAN_SAVE_TRIGGER_IMG = cfg.IMG_SAVE_FILTER and ImageType.TRIGGER in cfg.IMG_SAVE_FILTER
+    CAN_SAVE_DETECTION_IMG = not cfg.IMG_SAVE_FILTER or (cfg.IMG_SAVE_FILTER and ImageType.DETECTION in cfg.IMG_SAVE_FILTER)
+    CAN_SAVE_TRIGGER_IMG = not cfg.IMG_SAVE_FILTER or (cfg.IMG_SAVE_FILTER and ImageType.TRIGGER in cfg.IMG_SAVE_FILTER)
     
     # def __init__(self, arg, buffer:bytes|bytearray|memoryview|None=None, copy_to_fb:bool=False):
     #     super().__init__(arg, buffer, copy_to_fb)
@@ -82,9 +81,7 @@ class Frame:
         """
         Check if the image can be saved based on the configured filters.
         """
-        return (Frame.CAN_SAVE_ANY_IMG
-                or (Frame.CAN_SAVE_TRIGGER_IMG and self.image_type == ImageType.TRIGGER)
-                or (Frame.CAN_SAVE_DETECTION_IMG and self.image_type == ImageType.DETECTION))
+        return (self.image_type in cfg.IMG_SAVE_FILTER) if cfg.IMG_SAVE_FILTER else True
     
     @led_green
     def save(self, foldername: str, filename: str = "",):

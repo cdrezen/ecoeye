@@ -6,6 +6,10 @@ import sys
 from util.rect import Rect
 from util import timeutil
 import vision.frame
+from micropython import const
+
+#wether to control number of frame buffers or not (<1)
+NB_SENSOR_FRAMEBUFFERS:int = const(1)
 
 class Camera:
     """
@@ -17,8 +21,7 @@ class Camera:
     AFTER_EXPOSURE_TIMEOUT = 300  # ms
     INIT_TIMEOUT = 1000  # ms
         
-    def initialize(self, illumination: Illumination, sensor_pixformat, sensor_framesize, windowing_rect: Rect|None =None, 
-                 nb_framebuffers=0, exposure_mode=ExposureMode.AUTO):
+    def initialize(self, illumination: Illumination, sensor_pixformat, sensor_framesize, windowing_rect: Rect|None =None, exposure_mode=ExposureMode.AUTO):
         """
         Reset and initialize the camera sensor with the configured settings.
         Args:
@@ -32,7 +35,6 @@ class Camera:
         self.sensor_pixformat = sensor_pixformat
         self.sensor_framesize = sensor_framesize
         self.windowing_rect = windowing_rect
-        self.nb_framebuffers = nb_framebuffers
         self.exposure_mode = exposure_mode
         _initialized = True
 
@@ -55,16 +57,16 @@ class Camera:
             
         sensor.skip_frames(time=self.INIT_TIMEOUT)
         
-        if self.nb_framebuffers > 0:
-            print("set fbnb", self.nb_framebuffers)
-            sensor.set_framebuffers(self.nb_framebuffers)
+        if NB_SENSOR_FRAMEBUFFERS > 0:
+            print("set fbnb", NB_SENSOR_FRAMEBUFFERS)
+            sensor.set_framebuffers(NB_SENSOR_FRAMEBUFFERS)
 
-        if cfg.EXPOSURE_START_US > -1:
+        if cfg.EXPOSURE_US > -1:
             # Set initial exposure time if specified
-            sensor.set_auto_exposure(False, exposure_us=cfg.EXPOSURE_START_US)
-        if cfg.GAIN_START_DB > -1:
+            sensor.set_auto_exposure(False, exposure_us=cfg.EXPOSURE_US)
+        if cfg.GAIN_DB > -1:
             # Set initial gain if specified
-            sensor.set_auto_gain(False, gain_db=cfg.GAIN_START_DB)
+            sensor.set_auto_gain(False, gain_db=cfg.GAIN_DB)
 
         self.last_gain_db = int(sensor.get_gain_db())
         self.last_exposure = sensor.get_exposure_us()

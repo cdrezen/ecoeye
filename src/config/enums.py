@@ -47,8 +47,8 @@ class LedNightMode:
     OFF:int = const(2)
 
 class BlobExportShape:
-    RECTANGLE:int = const(0)
-    SQUARE:int = const(1)
+    RECTANGLE:bool = const(False)
+    SQUARE:bool = const(True)
 
 #image: classify the whole image (i.e. image classification)
 #objects: detect (multiple) targets within image (i.e. object detection)

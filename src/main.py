@@ -52,7 +52,7 @@ class App:
             self.classifier = Classifier(self.session)
 
         self.camera.initialize(self.illumination, cfg.SENSOR_PIXFORMAT, cfg.SENSOR_FRAMESIZE,
-                        cfg.WIN_RECT, cfg.NB_SENSOR_FRAMEBUFFERS, cfg.EXPOSURE_MODE)
+                        cfg.WIN_RECT, cfg.EXPOSURE_MODE)
         
         print("camera initialized")
         
