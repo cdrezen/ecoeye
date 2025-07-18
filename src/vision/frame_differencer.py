@@ -11,13 +11,19 @@ _BACKGROUND_BLEND_LEVEL = const(128)
 # How long to wait for auto blending frame in reference image (in milliseconds)
 _BLEND_TIMEOUT_MS = const(10000)
 
+def PASS(*args, **kwargs):
+    """
+    Dummy function to pass as default argument for listeners.
+    """
+    pass
+
 
 class FrameDifferencer:
     """
     Handles frame differencing functionality for motion detection.
     """
 
-    def __init__(self, image_width: int, image_height: int, sensor_pixformat, listener, session=None):
+    def __init__(self, image_width: int, image_height: int, sensor_pixformat, on_blob_found=PASS, on_triggered=PASS, on_background_reset=PASS, session=None):
         """
         Initialize the frame differencer with reference and original framebuffers.
         
@@ -25,11 +31,17 @@ class FrameDifferencer:
             image_width: Width of the images to process
             image_height: Height of the images to process
             sensor_pixformat: Pixel format (e.g., sensor.RGB565)
+            on_blob_found(Frame frame, image.blob blob): Callback function when a blob is found
+            on_triggered(Frame frame): Callback function when motion is detected
+            on_background_reset: Callback function when the background reference is reset
+            session: Session object for logging and detection
         """
         self.image_width = image_width
         self.image_height = image_height
         self.sensor_pixformat = sensor_pixformat
-        self.listener = listener
+        self.on_blob_found = on_blob_found
+        self.on_triggered = on_triggered
+        self.on_background_reset = on_background_reset
         self.session = session
         if session:
             self.detectionlog = session.detectionlog
@@ -154,7 +166,7 @@ class FrameDifferencer:
                 color_statistics = diff_frame.get_statistics(roi = blob.rect(), thresholds = cfg.BLOB_COLOR_THRESHOLDS)
                 self.detectionlog.append(diff_frame.id, blob, color_statistics, end_line=(cfg.ML_MODE != ML_Mode.BLOB_CLASS))
             
-            self.listener.on_blob_found(jpeg_frame, blob)
+            self.on_blob_found(jpeg_frame, blob)
 
     
     def update(self, frame: Frame):
@@ -170,7 +182,7 @@ class FrameDifferencer:
             self.set_reference_image(frame)
             self.was_triggered = False
             self.started = True
-            self.listener.on_background_reset()
+            self.on_background_reset()
             return frame
         # If the reference image is set, check if we need to blend the background
         # TODO: track detections rects and blend on no movement, multi blobs: mask?
@@ -189,7 +201,7 @@ class FrameDifferencer:
 
         if self.was_triggered:
             jpeg_frame.image_type = ImageType.TRIGGER
-            self.listener.on_triggered(jpeg_frame)
+            self.on_triggered(jpeg_frame)
 
         if not blobs: return jpeg_frame
 

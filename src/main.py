@@ -60,10 +60,10 @@ class App:
         self.image_height = cfg.WIN_RECT.h if cfg.WIN_RECT else sensor.height()
 
         if(cfg.FRAME_DIFF_ENABLED):
-            self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, 
-                                                      cfg.SENSOR_PIXFORMAT, self, self.session)
+            self.frame_differencer = FrameDifferencer(self.image_width, self.image_height, cfg.SENSOR_PIXFORMAT, 
+                                                      on_blob_found=self.on_fd_blob_found, session=self.session)
 
-    def on_triggered(self, jpeg_frame : Frame):
+    def on_fd_triggered(self, jpeg_frame : Frame):
         """
         Called when motion/blobs were found on a frame. Before blob processing.
         
@@ -72,7 +72,7 @@ class App:
         """
         pass
 
-    def on_blob_found(self, jpeg_frame: Frame, blob: image.blob):
+    def on_fd_blob_found(self, jpeg_frame: Frame, blob: image.blob):
         """
         Called when a blob has been processed by the frame differencer.
         
@@ -94,43 +94,47 @@ class App:
             output = self.classifier.classify(frame_blob.img, cfg.ML_MODE)
             self.detectionlog.append(jpeg_frame.id, labels=self.classifier.labels, confidences=output, rect=blob.rect(), prepend_comma=True)
 
-    def on_background_reset(self):
+    def on_fd_background_reset(self):
         """
         Called when the background reference image is reset.
         """
         pass
+
+    def update(self):
+        
+        timeutil.clock.tick()
+
+        # turn ON illumination LED at night if always ON || turn OFF illumination LED at daytime, blink busy led every period
+        self.illumination.update()
+
+        # handle power mangment, enter deeplseep if needed, lower frame rate using a configured delay
+        self.power_mgmt.update()
+
+        ### Take and process picture ###
+        
+        frame = self.camera.take_picture()
+        
+        if(self.frame_differencer):
+            frame = self.frame_differencer.update(frame)
+
+        if(self.session):
+            frame.log(self.session.imagelog)
+
+            if(cfg.ML_MODE==ML_Mode.FRAME_CLASS or cfg.ML_MODE==ML_Mode.OBJECT_DETECT):
+                detection_confidence = self.classifier.classify(frame.img, cfg.ML_MODE, roi_rect=frame.roi_rect)
+
+            if(frame.can_save()):
+                frame.save("img")
+
+        ###
+
+        print("Frames per second: %s" % str(round(timeutil.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
             
     def run(self):
         ### MAIN LOOP ###
         while(True):
+            self.update()
             
-            timeutil.clock.tick()
-
-            # turn ON illumination LED at night if always ON || turn OFF illumination LED at daytime, blink busy led every period
-            self.illumination.update()
-
-            # handle power mangment, enter deeplseep if needed, lower frame rate using a configured delay
-            self.power_mgmt.update()
-
-            ### Take and process picture ###
-            
-            frame = self.camera.take_picture()
-            
-            if(self.frame_differencer):
-                frame = self.frame_differencer.update(frame)
-
-            if(self.session):
-                frame.log(self.session.imagelog)
-
-                if(cfg.ML_MODE==ML_Mode.FRAME_CLASS or cfg.ML_MODE==ML_Mode.OBJECT_DETECT):
-                    detection_confidence = self.classifier.classify(frame.img, cfg.ML_MODE, roi_rect=frame.roi_rect)
-
-                if(frame.can_save()):
-                    frame.save("img")
-
-            ###
-
-            print("Frames per second: %s" % str(round(timeutil.clock.fps(),1)),", Gain (dB): %s" % str(round(sensor.get_gain_db())),", Exposure time (ms): %s" % str(round(sensor.get_exposure_us()/1000)),"\n*****")
 
 
 # Create and run the application
