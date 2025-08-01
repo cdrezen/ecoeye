@@ -1,4 +1,5 @@
-import machine, pyb, time
+import time
+from machine import RTC
 import config.settings as cfg
 from config.enums import TimeCoverage
 from micropython import const
@@ -46,7 +47,7 @@ SUNSET_MS = cfg.SUNSET_HOUR * MS_PER_HOUR + cfg.SUNSET_MINUTE * MS_PER_MIN
 clock = time.clock()
 
 def reset_rtc(datetime: tuple[int, int, int, int, int, int, int, int] = cfg.START_DATETIME):
-    pyb.RTC().datetime(datetime)
+    RTC().datetime(datetime)
 
 def datetime():
     """
@@ -131,3 +132,10 @@ def ms_until_sunset():
     
     # Between sunrise and sunset
     return SUNSET_MS - current_ms
+
+def elapsed_ticks_ms(start_ticks_ms) -> int:
+    """
+    Returns the elapsed time in milliseconds since start_time.
+    :param start_time: The time to compare against of uint64 ticks type... typically obtained from time.ticks_ms().
+    """
+    return time.ticks_diff(time.ticks_ms(), start_ticks_ms)
