@@ -14,6 +14,9 @@ from vision.frame_differencer import FrameDifferencer
 from vision.classifier import Classifier
 from util import timeutil
 from hardware import power
+from micropython import const
+
+DEEPSLEEP_RESET_CAUSE = const(4)
 
 class App:
     def __init__(self):
@@ -26,7 +29,7 @@ class App:
         self.detectionlog: DetectionLogger | None = None
         
 
-        if (machine.reset_cause() == machine.DEEPSLEEP_RESET):
+        if (machine.reset_cause() == DEEPSLEEP_RESET_CAUSE):
             # On wakeup from hibernation update rtc & fetch environment from session.json
             power.on_reset_wakeup()
             self.session = Session().load()

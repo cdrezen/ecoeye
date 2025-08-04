@@ -1,4 +1,5 @@
 ### LED FUNCTIONS ###
+import machine
 from machine import LED
 import config.settings as cfg
 from config.enums import LedNightMode
@@ -14,36 +15,36 @@ _BUSY_LED_DURATION_MS = const(500)
 
 def LED_RED_ON():
     LED_RGB_OFF()
-    LED(1).on()
+    LED("LED_RED").on()
     return
 def LED_GREEN_ON():
     LED_RGB_OFF()
-    LED(2).on()
+    LED("LED_GREEN").on()
     return
 def LED_BLUE_ON():
     LED_RGB_OFF()
-    LED(3).on()
+    LED("LED_BLUE").on()
     return
 def LED_YELLOW_ON():
     LED_RGB_OFF()
-    LED(1).on()
-    LED(2).on()
+    LED("LED_RED").on()
+    LED("LED_GREEN").on()
     return
 def LED_PURPLE_ON():
     LED_RGB_OFF()
-    LED(1).on()
-    LED(3).on()
+    LED("LED_RED").on()
+    LED("LED_BLUE").on()
     return
 def LED_CYAN_ON():
     LED_RGB_OFF()
-    LED(2).on()
-    LED(3).on()
+    LED("LED_GREEN").on()
+    LED("LED_BLUE").on()
     return
 def LED_WHITE_ON():
     LED_RGB_OFF()
-    LED(1).on()
-    LED(2).on()
-    LED(3).on()
+    LED("LED_RED").on()
+    LED("LED_GREEN").on()
+    LED("LED_BLUE").on()
     return
 def LED_IR_ON():
     LED_RGB_OFF()
@@ -51,155 +52,155 @@ def LED_IR_ON():
     return
 
 def LED_RED_OFF():
-    LED(1).off()
+    LED("LED_RED").off()
     return
 def LED_GREEN_OFF():
-    LED(2).off()
+    LED("LED_GREEN").off()
     return
 def LED_BLUE_OFF():
-    LED(3).off()
+    LED("LED_BLUE").off()
     return
 def LED_YELLOW_OFF():
-    LED(1).off()
-    LED(2).off()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
     return
 def LED_PURPLE_OFF():
-    LED(1).off()
-    LED(3).off()
+    LED("LED_RED").off()
+    LED("LED_BLUE").off()
     return
 def LED_CYAN_OFF():
-    LED(2).off()
-    LED(3).off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
     return
 def LED_WHITE_OFF():
-    LED(1).off()
-    LED(2).off()
-    LED(3).off()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
     return
 def LED_IR_OFF():
     LED(4).off()
     return
 def LED_RGB_OFF():
-    LED(1).off()
-    LED(2).off()
-    LED(3).off()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
     return
 # ⚊⚊⚊⚊⚊ LED TOGGLE ⚊⚊⚊⚊⚊
 def LED_RED_TOGGLE():
-    LED(2).off()
-    LED(3).off()
-    LED(1).toggle()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
+    LED("LED_RED").toggle()
     return
 def LED_GREEN_TOGGLE():
-    LED(1).off()
-    LED(3).off()
-    LED(2).toggle()
+    LED("LED_RED").off()
+    LED("LED_BLUE").off()
+    LED("LED_GREEN").toggle()
     return
 def LED_BLUE_TOGGLE():
-    LED(1).off()
-    LED(2).off()
-    LED(3).toggle()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").toggle()
     return
 def LED_YELLOW_TOGGLE():
-    LED(3).off()
-    LED(1).toggle()
-    LED(2).toggle()
+    LED("LED_BLUE").off()
+    LED("LED_RED").toggle()
+    LED("LED_GREEN").toggle()
     return
 def LED_PURPLE_TOGGLE():
-    LED(2).off()
-    LED(1).toggle()
-    LED(3).toggle()
+    LED("LED_GREEN").off()
+    LED("LED_RED").toggle()
+    LED("LED_BLUE").toggle()
     return
 def LED_CYAN_TOGGLE():
-    LED(1).off()
+    LED("LED_RED").off()
     LED(4).off()
-    LED(3).toggle()
+    LED("LED_BLUE").toggle()
     return
 def LED_WHITE_TOGGLE():
-    LED(1).toggle()
-    LED(2).toggle()
-    LED(3).toggle()
+    LED("LED_RED").toggle()
+    LED("LED_GREEN").toggle()
+    LED("LED_BLUE").toggle()
     return
 def LED_IR_TOGGLE():
     LED(4).toggle()
     return
 def LED_ALL_TOGGLE():
-    LED(1).toggle()
-    LED(2).toggle()
-    LED(3).toggle()
+    LED("LED_RED").toggle()
+    LED("LED_GREEN").toggle()
+    LED("LED_BLUE").toggle()
     LED(4).toggle()
     return
 
 def LED_RED_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        LED(1).on()
+        LED("LED_RED").on()
         time.sleep_ms(blinktime)
-        LED(1).off()
+        LED("LED_RED").off()
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return
 def LED_GREEN_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        LED(2).on()
+        LED("LED_GREEN").on()
         time.sleep_ms(blinktime)
-        LED(2).off()
+        LED("LED_GREEN").off()
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return
 def LED_BLUE_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        LED(3).on()
+        LED("LED_BLUE").on()
         time.sleep_ms(blinktime)
-        LED(3).off()
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return
 def LED_YELLOW_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        LED(1).on()
-        LED(2).on()
+        LED("LED_RED").on()
+        LED("LED_GREEN").on()
         time.sleep_ms(blinktime)
-        LED(1).off()
-        LED(2).off()
+        LED("LED_RED").off()
+        LED("LED_GREEN").off()
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return
 def LED_PURPLE_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        LED(1).on()
-        LED(3).on()
+        LED("LED_RED").on()
+        LED("LED_BLUE").on()
         time.sleep_ms(blinktime)
-        LED(1).off()
-        LED(3).off()
+        LED("LED_RED").off()
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return
 def LED_CYAN_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        LED(2).on()
-        LED(3).on()
+        LED("LED_GREEN").on()
+        LED("LED_BLUE").on()
         time.sleep_ms(blinktime)
-        LED(2).off()
-        LED(3).off()
+        LED("LED_GREEN").off()
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return
 def LED_WHITE_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        LED(1).on()
-        LED(2).on()
-        LED(3).on()
+        LED("LED_RED").on()
+        LED("LED_GREEN").on()
+        LED("LED_BLUE").on()
         time.sleep_ms(blinktime)
-        LED(1).off()
-        LED(2).off()
-        LED(3).off()
+        LED("LED_RED").off()
+        LED("LED_GREEN").off()
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return

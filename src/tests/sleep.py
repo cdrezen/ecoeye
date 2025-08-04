@@ -8,6 +8,8 @@ from util import timeutil
 SLEEP_TIME = 10000  # Sleep time in milliseconds
 SLEEP_TIME_SEC = SLEEP_TIME / timeutil.MS_PER_SEC
 ACC_TOLERANCE_SEC = 1 # Tolerance for sleep time accuracy in seconds
+DEEPSLEEP_RESET_CAUSE = 4
+
 
 first_run = ("start" not in os.listdir())
 
@@ -23,7 +25,7 @@ if first_run:
 
     power.deepsleep(SLEEP_TIME)
 
-elif machine.reset_cause() == machine.DEEPSLEEP_RESET:
+elif machine.reset_cause() == DEEPSLEEP_RESET_CAUSE:
 
     end_time_sec = time.time()
 

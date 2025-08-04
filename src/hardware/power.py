@@ -1,7 +1,7 @@
 ### VOLTAGE DIVIDER ###
 from logging.session import Session
 import time, machine
-from machine import Pin, Timer, ADC, RTC
+from machine import Pin, Timer, ADC
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, Illumination
 import config.settings as cfg
 from config.enums import TimeCoverage
@@ -24,7 +24,7 @@ R_1_PMS_NOLED = const(30)
 R_2_PMS_NOLED = const(100)
 R_1_NOPMS_NOLED = const(200)
 R_2_NOPMS_NOLED = const(680)
-VOLT_CONV_MULT = const(3.3/4095)
+VOLT_CONV_MULT = 3.3/65535 # voltage on the pin, 3.3V / 16-bit ADC, 0-65535
 
 ### VOLTAGE DIVIDER READING CLASS
 class Battery:
@@ -64,26 +64,27 @@ class Battery:
         # read adc value and convert into volts
         voltage = 0
         # create and set high the volatge divider enable pin
-        adcen = Pin('P1', Pin.OUT_PP)
+        adcen = Pin('P1', Pin.OUT)
         adcen.high()
         for i in range(self.nb_read):
             time.sleep_ms(self.read_delay)
-            voltage = voltage + (adc.read() * VOLT_CONV_MULT *(1+self.r1/self.r2))
+            voltage = voltage + (adc.read_u16() * VOLT_CONV_MULT *(1+self.r1/self.r2))
         # disconnect voltage divider from ADC pin
         adcen.low()
         adc_voltage = voltage/self.nb_read
         LED_YELLOW_OFF()
         
-        print("Voltage: %f V" % adc_voltage) # read value, 0-4095+
-        #re-assign pin to something neutral with low frequency
-        Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6")).pulse_width_percent(0)
+        print("Voltage: %f V" % adc_voltage) # read value, 0-65535
+        
+        # re-assign pin to something neutral with low frequency
+        # Timer(-1, freq=50000).channel(1, Timer.PWM, pin=Pin("P6")).pulse_width_percent(0)
             
         return adc_voltage
 
     def is_low(self, v=None):
         if v is None:
             v = self.read_voltage()
-        return (v!=-1 and v < VBAT_MINIMUM_VOLT and not pyb.USB_VCP().isconnected())
+        return (v!=-1 and v < VBAT_MINIMUM_VOLT)# and not pyb.USB_VCP().isconnected())
 
 class PowerManagement:
     """
