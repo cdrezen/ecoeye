@@ -1,10 +1,11 @@
-import sensor, image, pyb
+import sensor, image, time
 import config.settings as cfg
 from config.enums import ExposureMode, ML_Mode
 from hardware.led import LED_CYAN_ON, LED_CYAN_OFF
 from vision.frame import Frame
 from vision.image_type import ImageType
 from micropython import const
+from util import timeutil
 
 # How much to blend by ([0-256]==[0.0-1.0]). NOTE that blending happens every time exposure is adjusted
 _BACKGROUND_BLEND_LEVEL = const(128)
@@ -70,7 +71,7 @@ class FrameDifferencer:
         # Store the image as reference
         self.img_ref_fb.replace(frame.img)
         frame.save_and_log("reference", self.imagelog)
-        self.start_time_blending_ms = pyb.millis()
+        self.blending_start_ticks_ms = time.ticks_ms()
 
     def get_reference_image(self):
         """Return the reference image framebuffer"""
@@ -101,7 +102,7 @@ class FrameDifferencer:
         # Save reference image to disk
         frame.save_and_log("reference", self.imagelog)
 
-        self.start_time_blending_ms = pyb.millis()
+        self.blending_start_ticks_ms = time.ticks_ms()
         return
 
     def difference(self, frame: Frame):
@@ -186,7 +187,7 @@ class FrameDifferencer:
             return frame
         # If the reference image is set, check if we need to blend the background
         # TODO: track detections rects and blend on no movement, multi blobs: mask?
-        elif (self.was_triggered or pyb.elapsed_millis(self.start_time_blending_ms) > _BLEND_TIMEOUT_MS):
+        elif (self.was_triggered or timeutil.elapsed_ticks_ms(self.blending_start_ticks_ms) > _BLEND_TIMEOUT_MS):
             self.blend_background(frame)
             self.was_triggered = False
             return frame

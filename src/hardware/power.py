@@ -64,19 +64,17 @@ class Battery:
         # read adc value and convert into volts
         voltage = 0
         # create and set high the volatge divider enable pin
-        ADCEN = Pin('P1', Pin.OUT_PP)
-        ADCEN.high()
+        adcen = Pin('P1', Pin.OUT_PP)
+        adcen.high()
         for i in range(self.nb_read):
             time.sleep_ms(self.read_delay)
             voltage = voltage + (adc.read() * VOLT_CONV_MULT *(1+self.r1/self.r2))
         # disconnect voltage divider from ADC pin
-        ADCEN.low()
+        adcen.low()
         adc_voltage = voltage/self.nb_read
         LED_YELLOW_OFF()
-        # print the adc voltage on terminal
-        if(pyb.USB_VCP().isconnected()):
-            print("USB supply voltage: %f V" % adc_voltage) # read value, 0-4095+
-        else : print("Battery voltage: %f V" % adc_voltage) # read value, 0-4095+
+        
+        print("Voltage: %f V" % adc_voltage) # read value, 0-4095+
         #re-assign pin to something neutral with low frequency
         Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6")).pulse_width_percent(0)
             

@@ -1,4 +1,4 @@
-import os, pyb, json
+import os, json
 from logging.csv import Csv
 from logging.detection_logger import DetectionLogger
 from logging.image_logger import ImageLogger
@@ -132,13 +132,13 @@ class Session:
 
     def log_status(self, vbat, status="NA"):
 
-        adc  = pyb.ADCAll(12)
+        # adc  = pyb.ADCAll(12)
 
         date = str("-".join(map(str, timeutil.datetime()[0:6])))
-        usb_connected = str(pyb.USB_VCP().isconnected())
-        core_temperature_C = str(adc.read_core_temp())
+        # usb_connected = str(pyb.USB_VCP().isconnected())
+        # core_temperature_C = str(adc.read_core_temp())
 
-        print(f"Status: [datetime: {date}, status: {status}, voltage: {vbat}, USB_connected: {usb_connected}, core_temperature_C: {core_temperature_C}]")
+        print(f"Status: [datetime: {date}, status: {status}, voltage: {vbat}") #, USB_connected: {usb_connected}, core_temperature_C: {core_temperature_C}]")
 
-        self.statuslog.append(date, status, vbat, usb_connected, core_temperature_C)
+        self.statuslog.append(date, status, vbat) #, usb_connected, core_temperature_C)
         return

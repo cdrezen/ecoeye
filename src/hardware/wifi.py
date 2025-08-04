@@ -1,5 +1,5 @@
 import network, requests
-from pyb import Pin, Timer
+from machine import Pin, Timer
 from hardware.led import *
 
 ### WIFI & upload functions ###
