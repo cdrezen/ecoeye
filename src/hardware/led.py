@@ -46,10 +46,6 @@ def LED_WHITE_ON():
     LED("LED_GREEN").on()
     LED("LED_BLUE").on()
     return
-def LED_IR_ON():
-    LED_RGB_OFF()
-    LED(4).on()
-    return
 
 def LED_RED_OFF():
     LED("LED_RED").off()
@@ -77,9 +73,7 @@ def LED_WHITE_OFF():
     LED("LED_GREEN").off()
     LED("LED_BLUE").off()
     return
-def LED_IR_OFF():
-    LED(4).off()
-    return
+
 def LED_RGB_OFF():
     LED("LED_RED").off()
     LED("LED_GREEN").off()
@@ -121,9 +115,7 @@ def LED_WHITE_TOGGLE():
     LED("LED_GREEN").toggle()
     LED("LED_BLUE").toggle()
     return
-def LED_IR_TOGGLE():
-    LED(4).toggle()
-    return
+
 def LED_ALL_TOGGLE():
     LED("LED_RED").toggle()
     LED("LED_GREEN").toggle()
@@ -204,15 +196,7 @@ def LED_WHITE_BLINK(blinktime=1000,blinks=1):
         if ((blinks-i) > 1):
             time.sleep_ms(blinktime)
     return
-def LED_IR_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        LED(4).on()
-        time.sleep_ms(blinktime)
-        LED(4).off()
-        if ((blinks-i) > 1):
-            time.sleep_ms(blinktime)
-    return
+
 # ⚊⚊⚊⚊⚊ LED RAINBOW ⚊⚊⚊⚊⚊
 def LED_CYCLE(blinktime=1000,blinks=1):
     LED_RED_BLINK(blinktime,blinks)
@@ -249,14 +233,14 @@ class Illumination:
         if(self.enabled): return
         self.enabled = True
         print("Turning illumination LEDs ON", message)
-        LED_IR_ON()
+        LED_WHITE_ON()
         return
 
     def off(self, message=""):
         if(not self.enabled): return
         self.enabled = False
         print("Turning illumination LEDs OFF", message)
-        LED_IR_OFF()
+        LED_WHITE_OFF()
         return
 
     def toggle(self):
