@@ -4,7 +4,7 @@ from config.enums import Mode, ML_Mode
 #import libraries
 from hardware.camera import Camera
 from logging.detection_logger import DetectionLogger
-import sensor, machine, image
+import sensor, machine, image, time
 # import external functions
 from hardware.power import PowerManagement
 from hardware.led import *
@@ -43,6 +43,9 @@ class App:
             print_status=f"Initializing on {Mode.to_str(cfg.MODE)} mode..."
         else:
             print_status="Script start - Live view"
+
+        # give the user some time to be able to connect the device with OpenMV IDE
+        time.sleep_ms(3000)
 
         self.power_mgmt = PowerManagement(self.illumination, self.session)
         
