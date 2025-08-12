@@ -86,7 +86,7 @@ class Frame:
     @led_green
     def save(self, foldername: str, filename: str = "",):
         if not filename:
-            filename = str(self.id)
+            filename = f"{"-".join(map(str, self.capture_time[0:6]))}_{self.id}"
         folderpath = f"{Frame.BASE_FOLDER}/{foldername}"
         if not foldername in os.listdir(Frame.BASE_FOLDER):
             os.mkdir(folderpath)
