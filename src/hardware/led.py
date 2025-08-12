@@ -1,216 +1,202 @@
 ### LED FUNCTIONS ###
-import pyb
+import machine
+from machine import LED
 import config.settings as cfg
 from config.enums import LedNightMode
 from util import timeutil
 from micropython import const
+import time
+from util import timeutil
 
 #period of blue LED indicating camera is active (in milliseconds, also works when indicators=False)
 _BUSY_LED_INTERVAL_MS = const(60*1000)
 #how long to turn on active LED
 _BUSY_LED_DURATION_MS = const(500)
 
-# ⚊⚊⚊⚊⚊ LED ON ⚊⚊⚊⚊⚊
 def LED_RED_ON():
     LED_RGB_OFF()
-    pyb.LED(1).on()
+    LED("LED_RED").on()
     return
 def LED_GREEN_ON():
     LED_RGB_OFF()
-    pyb.LED(2).on()
+    LED("LED_GREEN").on()
     return
 def LED_BLUE_ON():
     LED_RGB_OFF()
-    pyb.LED(3).on()
+    LED("LED_BLUE").on()
     return
 def LED_YELLOW_ON():
     LED_RGB_OFF()
-    pyb.LED(1).on()
-    pyb.LED(2).on()
+    LED("LED_RED").on()
+    LED("LED_GREEN").on()
     return
 def LED_PURPLE_ON():
     LED_RGB_OFF()
-    pyb.LED(1).on()
-    pyb.LED(3).on()
+    LED("LED_RED").on()
+    LED("LED_BLUE").on()
     return
 def LED_CYAN_ON():
     LED_RGB_OFF()
-    pyb.LED(2).on()
-    pyb.LED(3).on()
+    LED("LED_GREEN").on()
+    LED("LED_BLUE").on()
     return
 def LED_WHITE_ON():
     LED_RGB_OFF()
-    pyb.LED(1).on()
-    pyb.LED(2).on()
-    pyb.LED(3).on()
+    LED("LED_RED").on()
+    LED("LED_GREEN").on()
+    LED("LED_BLUE").on()
     return
-def LED_IR_ON():
-    LED_RGB_OFF()
-    pyb.LED(4).on()
-    return
-# ⚊⚊⚊⚊⚊ LED OFF ⚊⚊⚊⚊⚊
+
 def LED_RED_OFF():
-    pyb.LED(1).off()
+    LED("LED_RED").off()
     return
 def LED_GREEN_OFF():
-    pyb.LED(2).off()
+    LED("LED_GREEN").off()
     return
 def LED_BLUE_OFF():
-    pyb.LED(3).off()
+    LED("LED_BLUE").off()
     return
 def LED_YELLOW_OFF():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
     return
 def LED_PURPLE_OFF():
-    pyb.LED(1).off()
-    pyb.LED(3).off()
+    LED("LED_RED").off()
+    LED("LED_BLUE").off()
     return
 def LED_CYAN_OFF():
-    pyb.LED(2).off()
-    pyb.LED(3).off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
     return
 def LED_WHITE_OFF():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
-    pyb.LED(3).off()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
     return
-def LED_IR_OFF():
-    pyb.LED(4).off()
-    return
+
 def LED_RGB_OFF():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
-    pyb.LED(3).off()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
     return
 # ⚊⚊⚊⚊⚊ LED TOGGLE ⚊⚊⚊⚊⚊
 def LED_RED_TOGGLE():
-    pyb.LED(2).off()
-    pyb.LED(3).off()
-    pyb.LED(1).toggle()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").off()
+    LED("LED_RED").toggle()
     return
 def LED_GREEN_TOGGLE():
-    pyb.LED(1).off()
-    pyb.LED(3).off()
-    pyb.LED(2).toggle()
+    LED("LED_RED").off()
+    LED("LED_BLUE").off()
+    LED("LED_GREEN").toggle()
     return
 def LED_BLUE_TOGGLE():
-    pyb.LED(1).off()
-    pyb.LED(2).off()
-    pyb.LED(3).toggle()
+    LED("LED_RED").off()
+    LED("LED_GREEN").off()
+    LED("LED_BLUE").toggle()
     return
 def LED_YELLOW_TOGGLE():
-    pyb.LED(3).off()
-    pyb.LED(1).toggle()
-    pyb.LED(2).toggle()
+    LED("LED_BLUE").off()
+    LED("LED_RED").toggle()
+    LED("LED_GREEN").toggle()
     return
 def LED_PURPLE_TOGGLE():
-    pyb.LED(2).off()
-    pyb.LED(1).toggle()
-    pyb.LED(3).toggle()
+    LED("LED_GREEN").off()
+    LED("LED_RED").toggle()
+    LED("LED_BLUE").toggle()
     return
 def LED_CYAN_TOGGLE():
-    pyb.LED(1).off()
-    pyb.LED(4).off()
-    pyb.LED(3).toggle()
+    LED("LED_RED").off()
+    LED(4).off()
+    LED("LED_BLUE").toggle()
     return
 def LED_WHITE_TOGGLE():
-    pyb.LED(1).toggle()
-    pyb.LED(2).toggle()
-    pyb.LED(3).toggle()
+    LED("LED_RED").toggle()
+    LED("LED_GREEN").toggle()
+    LED("LED_BLUE").toggle()
     return
-def LED_IR_TOGGLE():
-    pyb.LED(4).toggle()
-    return
+
 def LED_ALL_TOGGLE():
-    pyb.LED(1).toggle()
-    pyb.LED(2).toggle()
-    pyb.LED(3).toggle()
-    pyb.LED(4).toggle()
+    LED("LED_RED").toggle()
+    LED("LED_GREEN").toggle()
+    LED("LED_BLUE").toggle()
+    LED(4).toggle()
     return
-# ⚊⚊⚊⚊⚊ LED BLINK ⚊⚊⚊⚊⚊
+
 def LED_RED_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
+        LED("LED_RED").on()
+        time.sleep_ms(blinktime)
+        LED("LED_RED").off()
         if ((blinks-i) > 1):
-            pyb.delay(blinktime)
+            time.sleep_ms(blinktime)
     return
 def LED_GREEN_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        pyb.LED(2).on()
-        pyb.delay(blinktime)
-        pyb.LED(2).off()
+        LED("LED_GREEN").on()
+        time.sleep_ms(blinktime)
+        LED("LED_GREEN").off()
         if ((blinks-i) > 1):
-            pyb.delay(blinktime)
+            time.sleep_ms(blinktime)
     return
 def LED_BLUE_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(3).off()
+        LED("LED_BLUE").on()
+        time.sleep_ms(blinktime)
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
-            pyb.delay(blinktime)
+            time.sleep_ms(blinktime)
     return
 def LED_YELLOW_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.LED(2).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
-        pyb.LED(2).off()
+        LED("LED_RED").on()
+        LED("LED_GREEN").on()
+        time.sleep_ms(blinktime)
+        LED("LED_RED").off()
+        LED("LED_GREEN").off()
         if ((blinks-i) > 1):
-            pyb.delay(blinktime)
+            time.sleep_ms(blinktime)
     return
 def LED_PURPLE_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
-        pyb.LED(3).off()
+        LED("LED_RED").on()
+        LED("LED_BLUE").on()
+        time.sleep_ms(blinktime)
+        LED("LED_RED").off()
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
-            pyb.delay(blinktime)
+            time.sleep_ms(blinktime)
     return
 def LED_CYAN_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        pyb.LED(2).on()
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(2).off()
-        pyb.LED(3).off()
+        LED("LED_GREEN").on()
+        LED("LED_BLUE").on()
+        time.sleep_ms(blinktime)
+        LED("LED_GREEN").off()
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
-            pyb.delay(blinktime)
+            time.sleep_ms(blinktime)
     return
 def LED_WHITE_BLINK(blinktime=1000,blinks=1):
     LED_RGB_OFF()
     for i in range(blinks):
-        pyb.LED(1).on()
-        pyb.LED(2).on()
-        pyb.LED(3).on()
-        pyb.delay(blinktime)
-        pyb.LED(1).off()
-        pyb.LED(2).off()
-        pyb.LED(3).off()
+        LED("LED_RED").on()
+        LED("LED_GREEN").on()
+        LED("LED_BLUE").on()
+        time.sleep_ms(blinktime)
+        LED("LED_RED").off()
+        LED("LED_GREEN").off()
+        LED("LED_BLUE").off()
         if ((blinks-i) > 1):
-            pyb.delay(blinktime)
+            time.sleep_ms(blinktime)
     return
-def LED_IR_BLINK(blinktime=1000,blinks=1):
-    LED_RGB_OFF()
-    for i in range(blinks):
-        pyb.LED(4).on()
-        pyb.delay(blinktime)
-        pyb.LED(4).off()
-        if ((blinks-i) > 1):
-            pyb.delay(blinktime)
-    return
+
 # ⚊⚊⚊⚊⚊ LED RAINBOW ⚊⚊⚊⚊⚊
 def LED_CYCLE(blinktime=1000,blinks=1):
     LED_RED_BLINK(blinktime,blinks)
@@ -240,21 +226,21 @@ class Illumination:
     def __init__(self, led_night_mode=cfg.LED_NIGHT_MODE):
         self.enabled = False
         self.led_night_mode = led_night_mode
-        self.start_time_busy_LED_ms = pyb.millis()
+        self.busy_led_start_ticks_ms = time.ticks_ms()
         return
 
     def on(self, message=""):
         if(self.enabled): return
         self.enabled = True
         print("Turning illumination LEDs ON", message)
-        LED_IR_ON()
+        LED_WHITE_ON()
         return
 
     def off(self, message=""):
         if(not self.enabled): return
         self.enabled = False
         print("Turning illumination LEDs OFF", message)
-        LED_IR_OFF()
+        LED_WHITE_OFF()
         return
 
     def toggle(self):
@@ -280,8 +266,8 @@ class Illumination:
             self.off(message="during daytime")
 
         #blink LED every period
-        if (pyb.elapsed_millis(self.start_time_busy_LED_ms) > _BUSY_LED_INTERVAL_MS):
-            self.start_time_busy_LED_ms = pyb.millis()
+        if (timeutil.elapsed_ticks_ms(self.busy_led_start_ticks_ms) > _BUSY_LED_INTERVAL_MS):
+            self.busy_led_start_ticks_ms = time.ticks_ms()
             print("Blinking LED indicator after",str(_BUSY_LED_INTERVAL_MS/1000),"seconds")
             LED_BLUE_BLINK(_BUSY_LED_DURATION_MS)
 

@@ -49,7 +49,7 @@ def classify():
         print("Image details:",img)
 
         #starting classification
-        pyb.LED(2).on()
+        pyb.LED("LED_GREEN").on()
         print("LED on: classifying image", jpeg,"\n**************")
 
         #classify
@@ -82,7 +82,7 @@ def classify():
         #except:
             #print("Error with TFLite execution")
         #turn off green LED
-        pyb.LED(2).off()
+        pyb.LED("LED_GREEN").off()
 
         #optionally save image (for diagnostics)
         if export : img.save("out/"+jpeg+"_rgb565.jpg")

@@ -1,7 +1,7 @@
 ### VOLTAGE DIVIDER ###
 from logging.session import Session
-import pyb, sensor
-from pyb import Pin, Timer
+import time, machine
+from machine import Pin, Timer, ADC
 from hardware.led import LED_YELLOW_ON, LED_YELLOW_OFF, Illumination
 import config.settings as cfg
 from config.enums import TimeCoverage
@@ -20,27 +20,28 @@ CHECK_BAT_PERIOD_MS = const(10*60*1000)
 USE_DSLEEP_THRESHOLD = const(10000)
 
 # resistors values on voltage divider circuits
-R_1_PMS_noLED = const(30)
-R_2_PMS_noLED = const(100)
-R_1_noPMS_noLED = const(200)
-R_2_noPMS_noLED = const(680)
+R_1_PMS_NOLED = const(30)
+R_2_PMS_NOLED = const(100)
+R_1_NOPMS_NOLED = const(200)
+R_2_NOPMS_NOLED = const(680)
+VOLT_CONV_MULT = 3.3/65535 # voltage on the pin, 3.3V / 16-bit ADC, 0-65535
 
 ### VOLTAGE DIVIDER READING CLASS
 class Battery:
 
-    def __init__(self, R_1, R_2, vdiv_available=cfg.VOLTAGE_DIV_AVAILABLE, nb_read=VOLTAGE_AVG_SAMPLE_COUNT, read_delay=VOLTAGE_READINGS_DELAY_MS):
+    def __init__(self, r1, r2, vdiv_available=cfg.VOLTAGE_DIV_AVAILABLE, nb_read=VOLTAGE_AVG_SAMPLE_COUNT, read_delay=VOLTAGE_READINGS_DELAY_MS):
         """
         Initialize the Battery class with voltage divider parameters.
         
         Args:
-            R_1: Resistance of R1 in the voltage divider
-            R_2: Resistance of R2 in the voltage divider
+            r1: Resistance of r1 in the voltage divider
+            r1: Resistance of r2 in the voltage divider
             vdiv_available: Flag indicating if the voltage divider is available
             nb_read: Number of readings to average
             read_delay: Delay between readings in milliseconds
         """
-        self.R_1 = R_1
-        self.R_2 = R_2
+        self.r1 = r1
+        self.r2 = r2
         self.vdiv_available = vdiv_available
         self.nb_read = nb_read
         self.read_delay = read_delay
@@ -57,34 +58,33 @@ class Battery:
         if (not self.vdiv_available):
             return -1
         # adc pin needs to be defined after wifi shield used it
-        adc = pyb.ADC(pyb.Pin('P6'))
+        adc = ADC(Pin('P6'))
         #  yellow LED during measure
         LED_YELLOW_ON()
         # read adc value and convert into volts
         voltage = 0
         # create and set high the volatge divider enable pin
-        ADCEN = Pin('P1', pyb.Pin.OUT_PP)
-        ADCEN.high()
+        adcen = Pin('P1', Pin.OUT)
+        adcen.high()
         for i in range(self.nb_read):
-            pyb.delay(self.read_delay)
-            voltage = voltage + (adc.read() * (3.3/4095) *(1+self.R_1/self.R_2))
+            time.sleep_ms(self.read_delay)
+            voltage = voltage + (adc.read_u16() * VOLT_CONV_MULT *(1+self.r1/self.r2))
         # disconnect voltage divider from ADC pin
-        ADCEN.low()
+        adcen.low()
         adc_voltage = voltage/self.nb_read
         LED_YELLOW_OFF()
-        # print the adc voltage on terminal
-        if(pyb.USB_VCP().isconnected()):
-            print("USB supply voltage: %f V" % adc_voltage) # read value, 0-4095+
-        else : print("Battery voltage: %f V" % adc_voltage) # read value, 0-4095+
-        #re-assign pin to something neutral with low frequency
-        Timer(2, freq=50000).channel(1, Timer.PWM, pin=Pin("P6")).pulse_width_percent(0)
+        
+        print("Voltage: %f V" % adc_voltage) # read value, 0-65535
+        
+        # re-assign pin to something neutral with low frequency
+        # Timer(-1, freq=50000).channel(1, Timer.PWM, pin=Pin("P6")).pulse_width_percent(0)
             
         return adc_voltage
 
     def is_low(self, v=None):
         if v is None:
             v = self.read_voltage()
-        return (v!=-1 and v < VBAT_MINIMUM_VOLT and not pyb.USB_VCP().isconnected())
+        return (v!=-1 and v < VBAT_MINIMUM_VOLT)# and not pyb.USB_VCP().isconnected())
 
 class PowerManagement:
     """
@@ -99,10 +99,10 @@ class PowerManagement:
         self.enabled = enabled
         self.illumination = illumination
         self.session = session
-        r1 = R_1_PMS_noLED if self.enabled else R_1_noPMS_noLED
-        r2 = R_2_PMS_noLED if self.enabled else R_2_noPMS_noLED
+        r1 = R_1_PMS_NOLED if self.enabled else R_1_NOPMS_NOLED
+        r2 = R_2_PMS_NOLED if self.enabled else R_2_NOPMS_NOLED
         self.battery = Battery(r1, r2)
-        self.start_time_check_battery = pyb.millis()
+        self.check_battery_start_ticks_ms = time.ticks_ms()
 
     def get_battery_voltage(self):
        return self.battery.read_voltage()
@@ -154,8 +154,8 @@ class PowerManagement:
         self.sleep_if_not_operation_time()
 
         #check battery voltage (if possible) and log status every period
-        if (pyb.elapsed_millis(self.start_time_check_battery) > CHECK_BAT_PERIOD_MS):
-            self.start_time_check_battery = pyb.millis()
+        if (timeutil.elapsed_ticks_ms(self.check_battery_start_ticks_ms) > CHECK_BAT_PERIOD_MS):
+            self.check_battery_start_ticks_ms = time.ticks_ms()
             datetime = timeutil.datetime()
             print_status=f"Script running - timed check (Y,M,D) {datetime[0:3]} - (H,M,S) {datetime[4:7]}"
             self.sleep_if_low_bat(print_status)
@@ -164,7 +164,7 @@ class PowerManagement:
         if (cfg.PICTURE_DELAY_MS):
             if (cfg.PICTURE_DELAY_MS < USE_DSLEEP_THRESHOLD):
                 print("Delaying frame capture for", cfg.PICTURE_DELAY_MS, "seconds...")
-                pyb.delay(cfg.PICTURE_DELAY_MS)   
+                time.sleep_ms(cfg.PICTURE_DELAY_MS)   
             else:
                 self.illumination.off(no_cooldown=True, message="before deep sleep")
                 self.session.save()
@@ -187,10 +187,7 @@ def deepsleep(sleep_time: int):
 
     print(f"Going to deep sleep for {sleep_time} ms at (Y,M,D,H,M,S): {timeutil.datetime()[0:6]}")
     # schedule wakeup and hibernate
-    pyb.RTC().wakeup(sleep_time)
-    sensor.sleep(True)
-    sensor.shutdown(True)
-    pyb.standby()
+    machine.deepsleep(sleep_time)
     return
 
 def on_reset_wakeup():

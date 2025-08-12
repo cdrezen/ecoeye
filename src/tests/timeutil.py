@@ -1,6 +1,6 @@
 ### test timeutil
 from util import timeutil
-import pyb
+from machine import RTC
 from config import settings as cfg
 
 
@@ -24,15 +24,15 @@ def test_ms_since_midnight():
     Test if the milliseconds since midnight are correctly calculated.
     """
     # set the RTC to midnight
-    pyb.RTC().datetime(MIDNIGHT)
+    RTC().datetime(MIDNIGHT)
 
     assert timeutil.ms_since_midnight() == 0
 
-    pyb.RTC().datetime(MIDNIGHT_EDGE_LOW)
+    RTC().datetime(MIDNIGHT_EDGE_LOW)
 
     assert timeutil.ms_since_midnight() == timeutil.MS_PER_SEC
 
-    pyb.RTC().datetime(MIDNIGHT_EDGE_MAX)
+    RTC().datetime(MIDNIGHT_EDGE_MAX)
 
     assert timeutil.ms_since_midnight() == timeutil.MS_PER_DAY - timeutil.MS_PER_SEC
 
@@ -44,14 +44,14 @@ def test_date(date, day_expected: bool):
     day_night_str = "day" if day_expected else "night"
     
     # set the RTC to the test date
-    pyb.RTC().datetime(date)
+    RTC().datetime(date)
 
     assert timeutil.is_daytime() == day_expected
     assert timeutil.ms_until_sunrise() == 0 if day_expected else timeutil.ms_until_sunrise() > 0
     assert timeutil.ms_until_sunset() > 0 if day_expected else timeutil.ms_until_sunset() == 0
     
 # save current date
-original_date = pyb.RTC().datetime()
+original_date = RTC().datetime()
 
 test_ms_since_midnight()
 
@@ -63,4 +63,4 @@ for date in NIGHT_DATES:
 
 
 # set rtc date back to original date (assume processing time is negligible)
-pyb.RTC().datetime(original_date)
+RTC().datetime(original_date)
