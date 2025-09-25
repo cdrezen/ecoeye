@@ -31,6 +31,7 @@ SUNRISE_HOUR = const(5)
 SUNRISE_MINUTE = const(17)
 SUNSET_HOUR = const(18)
 SUNSET_MINUTE = const(34)
+CONNECT_DELAY_MS = const(5000) # ms to wait at startup to allow connection with OpenMV IDE
 
 ### ILLUMINATION LED & INDICATORS ###
 # onboard IR illumination mode (at night):
@@ -63,7 +64,7 @@ JPEG_QUALITY = const(93)
 # = [] (empty): save no picture 
 # = [ImageType.DEFAULT]: save only default pictures (i.e. all pictures except trigger and detection)
 # = [ImageType.TRIGGER]: save only trigger pictures (frame differencing or ml)
-# = [ImageType.DETECTION]: save only detection pictures (ml)
+# = [ImageType.DETECTION]: save only detection pictures (ml or blob)
 IMG_SAVE_FILTER = const(None) if MODE == Mode.LIVE_VIEW else const([ImageType.TRIGGER, ImageType.DETECTION])
 
 ### EXPOSURE ###

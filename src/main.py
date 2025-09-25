@@ -45,7 +45,7 @@ class App:
             print_status="Script start - Live view"
 
         # give the user some time to be able to connect the device with OpenMV IDE
-        time.sleep_ms(3000)
+        time.sleep_ms(cfg.CONNECT_DELAY_MS)
 
         self.power_mgmt = PowerManagement(self.illumination, self.session)
         

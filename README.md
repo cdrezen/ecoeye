@@ -55,3 +55,9 @@ Edit `src/config/settings.py` to configure the device date and other parameters.
     ```
 
 3. Restart the camera as described above after the script completes.
+
+### Troubleshooting
+
+#### Unable to connect RT1062 to OpenMV IDE
+We have encountered difficulties to connect the RT1062 once the program has started capturing images in a loop. It is not clear whether it comes from the firmware or the PCB as it wasn't an issue with the H7PLUS.
+We have added a configurable delay constant in [settings.py](https://github.com/cdrezen/ecoeye/blob/5f2df546aadd09020395379d047cd38d94b59189/src/config/settings.py#L34) to address this, to give the user some time to connect the camera on initialization.
