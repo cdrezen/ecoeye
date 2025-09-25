@@ -197,7 +197,7 @@ class FrameDifferencer:
         diff_frame = Frame(frame.img, frame.capture_time, frame.exposure_us, frame.gain_db, frame.fps, frame.image_type, frame.roi_rect, id=frame.id)
         
         self.difference(diff_frame)
-        diff_frame.save("diff")
+        # diff_frame.save("diff")
         blobs = self.find_blobs(diff_frame)
 
         if self.was_triggered:

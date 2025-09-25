@@ -32,8 +32,6 @@ class Csv:
         :param prepend_comma: Whether to prepend a comma before the data.
         :param end_line: Whether to end the line after the data.
         """
-        
-        print(self.path)
 
         with open(self.path, 'a') as file:
             start = ',' if prepend_comma else ''
